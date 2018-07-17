@@ -200,6 +200,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
                 percent = 0 if correct == 0 else float(succeeded) / correct
                 f.write("Total, Total, %d, %d, %d, %.3f\n" % (total, correct, succeeded, percent))
 
+            np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_eps_%s.npz" % eps_str), x_original = succeeded_x_original[-1], target = succeeded_target[-1], x_adv = succeeded_x_adv[-1], pred_adv = succeeded_pred_adv[-1])
+
     print("Done!")
 
     return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_pred_adv
@@ -294,6 +296,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             curr_succeeded_x_adv = []
             success_counts = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
             total_succeeded = 0
+            eps_str = str(curr_eps).replace(".", "_")
 
             for curr_target in range(len(class_names)):
                 print("Current target: %s" % class_names[curr_target])
@@ -345,7 +348,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 
                 np.add.at(success_counts, [preds[succeeded_idx], preds_adv[succeeded_idx]], 1)
 
-            eps_str = str(curr_eps).replace(".", "_")
+                np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_target_%s_eps_%s.npz" % (class_names[curr_target], eps_str)), x_original = curr_succeeded_x_original[-1], target = curr_succeeded_target[-1], x_adv = curr_succeeded_x_adv[-1])
+
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_count_eps_%s.png" % eps_str), class_names = class_names)
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_rate_eps_%s.png" % eps_str), total = heatmap_totals, class_names = class_names, annotate = False)
 
@@ -362,3 +366,63 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
     print("Done!")
 
     return succeeded_x_original, succeeded_target, succeeded_x_adv
+
+def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, one_hot = True, extra_feed_dict = None):
+    if extra_feed_dict is None:
+        extra_feed_dict = {}
+    try:
+        os.makedirs(out_dir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    
+    logits_op, loss_op = model_loss_fn(x_pl, t_pl)
+
+    data_x = np.array(data_x)
+    data_t = np.array(data_t)
+
+    saver = tf.train.Saver()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config = config) as sess:
+        saver.restore(sess, model_path)
+        print("Model restored!")
+
+        logits = []
+        losses = []
+        preds = []
+        for i in range(len(data_x)):
+            feed_dict = {
+                x_pl: [data_x[i]],
+                t_pl: [data_t[i]]
+            }
+            feed_dict.update(extra_feed_dict)
+            curr_logit, curr_loss = sess.run([logits_op, loss_op], feed_dict = feed_dict)
+            curr_pred = np.argmax(curr_logit, axis = 1)
+            logits.append(curr_logit)
+            losses.append(curr_loss)
+            preds.append(curr_pred)
+        
+        logits = np.concatenate(logits)
+        losses = np.array(losses)
+        preds = np.concatenate(preds)
+
+        if one_hot:
+            sparse_t = np.argmax(data_t, axis = 1)
+        else:
+            sparse_t = data_t
+        
+        correct = np.sum(preds == sparse_t)
+
+        target_vs_preds = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
+        np.add.at(target_vs_preds, [sparse_t, preds], 1)
+
+        class_change_heatmap(target_vs_preds, os.path.join(out_dir, "target_vs_preds.png"), class_names = class_names, percentages = False)
+        class_change_heatmap(target_vs_preds, os.path.join(out_dir, "percent_target_vs_preds.png"), class_names = class_names, annotate = False)
+
+        print("Total: %d" % len(data_x))
+        print("Correct: %d" % correct)
+        print("Correct / Total: %.3f" % (float(correct) / len(data_x)))
+
+    print("Done!")

@@ -1,7 +1,6 @@
 import numpy as np
 import tensorflow as tf
 import scipy
-import adversarial_attacks
 import adversarial_utils
 import os
 import sys
@@ -13,8 +12,8 @@ import provider
 import pc_util
 
 model = importlib.import_module("pointnet_cls")
-class_names = [line.rstrip() for line in open(os.path.join(working_dir, "data/modelnet40_ply_hdf5_2048/shape_names.txt"))]
-test_files = provider.getDataFiles(os.path.join(working_dir, "data/modelnet40_ply_hdf5_2048/test_files.txt"))
+class_names = [line.rstrip() for line in open("data/modelnet40_ply_hdf5_2048/shape_names.txt")]
+test_files = provider.getDataFiles("data/modelnet40_ply_hdf5_2048/test_files.txt")
 
 num_points = 1024
 
