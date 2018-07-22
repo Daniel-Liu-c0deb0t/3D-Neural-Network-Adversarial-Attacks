@@ -38,7 +38,7 @@ def read_off_files(globPath, label_names = None):
                 if label_names is None or name in label_names:
                     if label_names is not None:
                         name = label_names[name]
-                    objects.append(faces)
+                    objects.append(faces[:, :, [0, 2, 1]])
                     labels.append(name)
                 else:
                     raise ValueError("A label does not exist in label names!")
@@ -86,37 +86,33 @@ def sample_points(objects, num_points):
     points = np.array(points)
     triangles = np.array(triangles)
 
-    # normalize the points and triangles
-    avg = np.average(np.transpose(points, axes = (0, 2, 1)), axis = 2)
-    points = points - avg[:, np.newaxis, :]
-    triangles = triangles - avg[:, np.newaxis, np.newaxis, :]
-    dist = np.max(np.linalg.norm(points, axis = 2), axis = 1)
-    points = points / dist[:, np.newaxis, np.newaxis]
-    triangles = triangles / dist[:, np.newaxis, np.newaxis, np.newaxis]
-
     return points, triangles
 
-def farthest_points(points, faces, num_points):
+def farthest_points_normalized(points, faces, num_points):
     res_points = []
     res_faces = []
 
-    for obj, face in zip(points, faces):
-        first = np.random.randint(len(obj))
+    for obj_points, obj_faces in zip(points, faces):
+        first = np.random.randint(len(obj_points))
         selected = [first]
-        mask = np.ones(len(obj))
-        mask[first] = 0
+        dists = np.full(shape = len(obj_points), fill_value = np.inf)
 
         for _ in range(num_points - 1):
-            dist = np.zeros(shape = len(obj))
-            for idx in selected:
-                dist += np.linalg.norm(obj - obj[idx][np.newaxis, :], axis = 1)
-            dist *= mask
-            
-            idx = np.argmax(dist)
-            selected.append(idx)
-            mask[idx] = 0
+            dists = np.minimum(dists, np.linalg.norm(obj_points - obj_points[selected[-1]][np.newaxis, :], axis = 1))
+            selected.append(np.argmax(dists))
         
-        res_points.append(obj[selected])
-        res_faces.append(face[selected])
+        res_points.append(obj_points[selected])
+        res_faces.append(obj_faces[selected])
     
+    res_points = np.array(res_points)
+    res_faces = np.array(res_faces)
+
+    # normalize the points and faces
+    avg = np.average(np.transpose(res_points, axes = (0, 2, 1)), axis = 2)
+    res_points = res_points - avg[:, np.newaxis, :]
+    res_faces = res_faces - avg[:, np.newaxis, np.newaxis, :]
+    dists = np.max(np.linalg.norm(res_points, axis = 2), axis = 1)
+    res_points = res_points / dists[:, np.newaxis, np.newaxis]
+    res_faces = res_faces / dists[:, np.newaxis, np.newaxis, np.newaxis]
+
     return res_points, res_faces

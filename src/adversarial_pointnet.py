@@ -13,19 +13,28 @@ import pc_util
 
 model = importlib.import_module("pointnet_cls")
 class_names = [line.rstrip() for line in open("data/modelnet40_ply_hdf5_2048/shape_names.txt")]
-test_files = provider.getDataFiles("data/modelnet40_ply_hdf5_2048/test_files.txt")
 
+numpy_file = True
 num_points = 1024
 
-data_x = []
-data_t = []
-for file in test_files:
-    curr_x, curr_t = provider.loadDataFile(file)
-    data_x.append(curr_x[:, :num_points, :])
-    data_t.append(np.squeeze(curr_t))
+if numpy_file:
+    file = np.load("point_clouds.npz")
+    data_x = file["points"][:, :num_points, :]
+    data_f = file["faces"][:, :num_points, :3, :]
+    data_t = file["labels"]
+else:
+    test_files = provider.getDataFiles("data/modelnet40_ply_hdf5_2048/test_files.txt")
 
-data_x = np.concatenate(data_x)
-data_t = np.concatenate(data_t)
+    data_x = []
+    data_t = []
+    for file in test_files:
+        curr_x, curr_t = provider.loadDataFile(file)
+        data_x.append(curr_x[:, :num_points, :])
+        data_t.append(np.squeeze(curr_t))
+
+    data_x = np.concatenate(data_x)
+    data_f = None
+    data_t = np.concatenate(data_t)
 
 x_pl, t_pl = model.placeholder_inputs(1, num_points)
 
@@ -47,12 +56,16 @@ model_path = "log/model.ckpt"
 
 if targeted:
     output_path = "adversary/targeted"
-    x_original, target, x_adv = adversarial_utils.targeted_attack(model_path, output_path, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter = iter, eps_list = eps_list, one_hot = False, extra_feed_dict = {is_training: False})
+    res = adversarial_utils.targeted_attack(model_path, output_path, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, data_f = data_f, iter = iter, eps_list = eps_list, one_hot = False, extra_feed_dict = {is_training: False})
+    if data_f is None:
+        x_original, target, x_adv = res
+    else:
+        x_original, target, x_adv, faces = res
 
     for eps_idx in range(len(eps_list)):
-        class_idx = np.random.choice(len(class_names), size = 10, replace = False)
+        class_idx = np.random.choice(len(class_names), size = len(class_names), replace = False)
         for i in class_idx:
-            idx = np.random.choice(len(x_original[eps_idx][i]), size = 3, replace = False)
+            idx = np.random.choice(len(x_original[eps_idx][i]), size = min(3, len(x_original[eps_idx][i])), replace = False)
             for j in idx:
                 img_file = "%d_%s_original.jpg" % (j, class_names[target[eps_idx][i][j]])
                 img_file = os.path.join(output_path, img_file)
@@ -66,10 +79,14 @@ if targeted:
                 scipy.misc.imsave(img_file, img)
 else:
     output_path = "adversary/untargeted"
-    x_original, target, x_adv, pred_adv = adversarial_utils.untargeted_attack(model_path, output_path, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter = iter, eps_list = eps_list, one_hot = False, extra_feed_dict = {is_training: False})
+    res = adversarial_utils.untargeted_attack(model_path, output_path, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, data_f = data_f, iter = iter, eps_list = eps_list, one_hot = False, extra_feed_dict = {is_training: False})
+    if data_f is None:
+        x_original, target, x_adv, pred_adv = res
+    else:
+        x_original, target, x_adv, pred_adv, faces = res
 
     for eps_idx in range(len(eps_list)):
-        idx = np.random.choice(len(x_original[eps_idx]), size = 10, replace = False)
+        idx = np.random.choice(len(x_original[eps_idx]), size = min(30, len(x_original[eps_idx])), replace = False)
         for i in idx:
             img_file = "%d_%s_original.jpg" % (i, class_names[target[eps_idx][i]])
             img_file = os.path.join(output_path, img_file)

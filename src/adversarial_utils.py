@@ -8,14 +8,17 @@ import adversarial_attacks
 import os
 import errno
 
+def confusion_heatmap(data, path, class_names = None, percentages = True, annotate = True):
+    data = np.array(data)
+    
+    if percentages:
+        total = np.sum(data, axis = 1, keepdims = True)
+        total[total == 0] = 1 # handle division by zero
+        data = data.astype(float) / total
+
+    heatmap(data, path, "Target Classes", "Predicted Classes", class_names = class_names, percentages = percentages, annotate = annotate)
+
 def class_change_heatmap(data, path, class_names = None, percentages = True, annotate = True):
-    """
-    :param data: array where each element represents how many adversarial examples switched classes
-        first dimension should represent the initial classes
-        second dimension should represent the classes that were switched to due to adversarial attacks
-    :param path: the file path to save the image to
-    :param class_names: optional names for each class
-    """
     data = np.array(data)
     
     if percentages:
@@ -61,7 +64,7 @@ def heatmap(data, path, x_label, y_label, class_names = None, percentages = True
     plt.savefig(path)
     plt.close()
 
-def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
+def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, data_f = None, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -74,14 +77,20 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
 
     data_x = np.array(data_x)
     data_t = np.array(data_t)
+    if data_f is not None:
+        data_f = np.array(data_f)
     eps_list = np.array(eps_list)
 
     eps = tf.placeholder(tf.float32, shape = [])
+    if data_f is None:
+        faces = None
+    else:
+        faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
 
     if use_momentum:
-        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, clip_min = clip_min, clip_max = clip_max)
     else:
-        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, one_hot = one_hot, iter = iter, eps = eps, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, clip_min = clip_min, clip_max = clip_max)
     
     saver = tf.train.Saver()
 
@@ -95,6 +104,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         succeeded_target = []
         succeeded_x_adv = []
         succeeded_pred_adv = []
+        if data_f is not None:
+            succeeded_faces = []
 
         total = len(data_x)
 
@@ -128,6 +139,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         losses = losses[correct_idx]
         data_x = data_x[correct_idx]
         data_t = data_t[correct_idx]
+        if data_f is not None:
+            data_f = data_f[correct_idx]
 
         correct = len(data_x)
 
@@ -148,6 +161,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
                     x_pl: [data_x[i]],
                     eps: curr_eps
                 }
+                if data_f is not None:
+                    feed_dict[faces] = [data_f[i]]
                 feed_dict.update(extra_feed_dict)
                 curr_x_adv = sess.run(x_adv_op, feed_dict = feed_dict)
                 x_adv.append(curr_x_adv)
@@ -179,6 +194,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             succeeded_target.append(data_t[succeeded_idx])
             succeeded_x_adv.append(x_adv[succeeded_idx])
             succeeded_pred_adv.append(preds_adv[succeeded_idx])
+            if data_f is not None:
+                succeeded_faces.append(data_f[succeeded_idx])
             
             class_changes = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
             np.add.at(class_changes, [preds, preds_adv], 1)
@@ -200,13 +217,19 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
                 percent = 0 if correct == 0 else float(succeeded) / correct
                 f.write("Total, Total, %d, %d, %d, %.3f\n" % (total, correct, succeeded, percent))
 
-            np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_eps_%s.npz" % eps_str), x_original = succeeded_x_original[-1], target = succeeded_target[-1], x_adv = succeeded_x_adv[-1], pred_adv = succeeded_pred_adv[-1])
+            if data_f is None:
+                np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_eps_%s.npz" % eps_str), x_original = succeeded_x_original[-1], labels = succeeded_target[-1], x_adv = succeeded_x_adv[-1], pred_adv = succeeded_pred_adv[-1])
+            else:
+                np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_eps_%s.npz" % eps_str), x_original = succeeded_x_original[-1], labels = succeeded_target[-1], x_adv = succeeded_x_adv[-1], pred_adv = succeeded_pred_adv[-1], faces = succeeded_faces[-1])
 
     print("Done!")
 
-    return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_pred_adv
+    if data_f is None:
+        return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_pred_adv
+    else:
+        return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_pred_adv, succeeded_faces
 
-def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
+def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, data_f = None, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -219,18 +242,24 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
 
     data_x = np.array(data_x)
     data_t = np.array(data_t)
+    if data_f is not None:
+        data_f = np.array(data_f)
     eps_list = np.array(eps_list)
 
     eps = tf.placeholder(tf.float32, shape = [])
     if one_hot:
-        target = tf.placeholder(tf.float32, shape = [None, len(class_names)])
+        target = tf.placeholder(tf.float32, shape = [1, len(class_names)])
     else:
-        target = tf.placeholder(tf.int32, [None])
+        target = tf.placeholder(tf.int32, [1])
+    if data_f is None:
+        faces = None
+    else:
+        faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
     
     if use_momentum:
-        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = target, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, clip_min = clip_min, clip_max = clip_max)
     else:
-        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, t_pl = target, one_hot = one_hot, iter = iter, eps = eps, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, clip_min = clip_min, clip_max = clip_max)
     
     saver = tf.train.Saver()
 
@@ -243,6 +272,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         succeeded_x_original = []
         succeeded_target = []
         succeeded_x_adv = []
+        if data_f is not None:
+            succeeded_faces = []
 
         total = len(data_x)
 
@@ -276,6 +307,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         losses = losses[correct_idx]
         data_x = data_x[correct_idx]
         data_t = data_t[correct_idx]
+        if data_f is not None:
+            data_f = data_f[correct_idx]
 
         correct = len(data_x)
 
@@ -294,6 +327,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             curr_succeeded_x_original = []
             curr_succeeded_target = []
             curr_succeeded_x_adv = []
+            if data_f is not None:
+                curr_succeeded_faces = []
             success_counts = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
             total_succeeded = 0
             eps_str = str(curr_eps).replace(".", "_")
@@ -314,6 +349,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                         eps: curr_eps,
                         target: [adv_target]
                     }
+                    if data_f is not None:
+                        feed_dict[faces] = [data_f[i]]
                     feed_dict.update(extra_feed_dict)
                     curr_x_adv = sess.run(x_adv_op, feed_dict = feed_dict)
                     x_adv.append(curr_x_adv)
@@ -345,10 +382,15 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 curr_succeeded_x_original.append(data_x[succeeded_idx])
                 curr_succeeded_target.append(data_t[succeeded_idx])
                 curr_succeeded_x_adv.append(x_adv[succeeded_idx])
+                if data_f is not None:
+                    curr_succeeded_faces.append(data_f[succeeded_idx])
                 
                 np.add.at(success_counts, [preds[succeeded_idx], preds_adv[succeeded_idx]], 1)
 
-                np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_target_%s_eps_%s.npz" % (class_names[curr_target], eps_str)), x_original = curr_succeeded_x_original[-1], target = curr_succeeded_target[-1], x_adv = curr_succeeded_x_adv[-1])
+                if data_f is None:
+                    np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_target_%s_eps_%s.npz" % (class_names[curr_target], eps_str)), x_original = curr_succeeded_x_original[-1], labels = curr_succeeded_target[-1], x_adv = curr_succeeded_x_adv[-1])
+                else:
+                    np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_target_%s_eps_%s.npz" % (class_names[curr_target], eps_str)), x_original = curr_succeeded_x_original[-1], labels = curr_succeeded_target[-1], x_adv = curr_succeeded_x_adv[-1], faces = curr_succeeded_faces[-1])
 
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_count_eps_%s.png" % eps_str), class_names = class_names)
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_rate_eps_%s.png" % eps_str), total = heatmap_totals, class_names = class_names, annotate = False)
@@ -362,10 +404,15 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             succeeded_x_original.append(curr_succeeded_x_original)
             succeeded_target.append(curr_succeeded_target)
             succeeded_x_adv.append(curr_succeeded_x_adv)
+            if data_f is not None:
+                succeeded_faces.append(curr_succeeded_faces)
 
     print("Done!")
 
-    return succeeded_x_original, succeeded_target, succeeded_x_adv
+    if data_f is None:
+        return succeeded_x_original, succeeded_target, succeeded_x_adv
+    else:
+        return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_faces
 
 def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, one_hot = True, extra_feed_dict = None):
     if extra_feed_dict is None:

@@ -20,7 +20,7 @@ output_path = "evaluate"
 
 if numpy_file:
     file = np.load("point_clouds.npz")
-    data_x = file["points"]
+    data_x = file["points"][:, :num_points, :]
     data_t = file["labels"]
 else:
     test_files = provider.getDataFiles("data/modelnet40_ply_hdf5_2048/test_files.txt")
