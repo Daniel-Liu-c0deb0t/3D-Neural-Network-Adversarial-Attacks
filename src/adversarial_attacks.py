@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, clip_min = None, clip_max = None):
+def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
     alpha = eps / float(iter)
 
@@ -31,7 +31,8 @@ def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = 
             # constrain perturbations for each point to its corresponding plane
             x_adv = x_adv - normal * tf.reduce_sum(normal * (x_adv - faces[:, :, 0]), axis = 2, keep_dims = True)
             # clip perturbations that goes outside each triangle
-            x_adv = triangle_border_intersections_op(x_original, x_adv, faces)
+            if restrict:
+                x_adv = triangle_border_intersections_op(x_original, x_adv, faces)
 
         if clip_min is not None and clip_max is not None:
             x_adv = tf.clip_by_value(x_adv, clip_min, clip_max)
@@ -40,7 +41,7 @@ def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = 
     
     return x_adv
 
-def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, clip_min = None, clip_max = None):
+def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
     alpha = eps / float(iter)
 
@@ -76,7 +77,8 @@ def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_ho
             # constrain perturbations for each point to its corresponding plane
             x_adv = x_adv - normal * tf.reduce_sum(normal * (x_adv - faces[:, :, 0]), axis = 2, keep_dims = True)
             # clip perturbations that goes outside each triangle
-            x_adv = triangle_border_intersections_op(x_original, x_adv, faces)
+            if restrict:
+                x_adv = triangle_border_intersections_op(x_original, x_adv, faces)
 
         if clip_min is not None and clip_max is not None:
             x_adv = tf.clip_by_value(x_adv, clip_min, clip_max)
@@ -86,6 +88,7 @@ def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_ho
     return x_adv
 
 inf = float("inf")
+float_epsilon = 1e-4 # to handle floating point inaccuracies
 
 def triangle_border_intersections_op(p1, p2, triangles):
     p = p1
@@ -107,7 +110,7 @@ def triangle_border_intersections_op(p1, p2, triangles):
     b = -tf.reduce_sum(side_normals * a, axis = 3) / dot
     dir = d[:, :, tf.newaxis, :] * b[:, :, :, tf.newaxis]
     # intersections not in the same direction as d have b < 0
-    mask = tf.logical_or(zero_mask, b < 0)[:, :, :, tf.newaxis] & tf.fill(tf.shape(dir), True)
+    mask = tf.logical_or(zero_mask, b < -float_epsilon)[:, :, :, tf.newaxis] & tf.fill(tf.shape(dir), True)
     dir = tf.where(mask, tf.fill(tf.shape(dir), inf), dir)
 
     # only use closest intersection

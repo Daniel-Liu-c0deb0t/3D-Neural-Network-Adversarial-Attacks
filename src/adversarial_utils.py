@@ -64,7 +64,7 @@ def heatmap(data, path, x_label, y_label, class_names = None, percentages = True
     plt.savefig(path)
     plt.close()
 
-def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, data_f = None, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
+def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, data_f = None, restrict = False, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -88,9 +88,9 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
 
     if use_momentum:
-        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     else:
-        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     
     saver = tf.train.Saver()
 
@@ -229,7 +229,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
     else:
         return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_pred_adv, succeeded_faces
 
-def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, data_f = None, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
+def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, iter, eps_list, data_f = None, restrict = False, one_hot = True, use_momentum = False, momentum = 1.0, clip_min = None, clip_max = None, extra_feed_dict = None):
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -257,9 +257,9 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
     
     if use_momentum:
-        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     else:
-        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     
     saver = tf.train.Saver()
 
