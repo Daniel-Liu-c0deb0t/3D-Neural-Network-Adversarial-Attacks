@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
+def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, ord = "inf", clip_min = None, clip_max = None):
     targeted = t_pl is not None
     alpha = eps / float(iter)
 
@@ -16,6 +16,15 @@ def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = 
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
         normal = normal / tf.norm(normal, axis = 2, keep_dims = True)
 
+    if ord == "inf":
+        ord_fn = tf.sign
+    elif ord == "1":
+        ord_fn = lambda x: x / tf.linalg.norm(x, ord = 1, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+    elif ord == "2":
+        ord_fn = lambda x: x / tf.linalg.norm(x, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+    else:
+        raise ValueError("Only L-inf, L1, and L2 norms are supported!")
+
     x_adv = x_pl
     for _ in range(iter):
         _, loss = model_loss_fn(x_adv, t_pl)
@@ -23,9 +32,9 @@ def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = 
         x_original = x_adv
 
         if targeted:
-            x_adv = x_adv - alpha * tf.sign(tf.gradients(loss, x_adv)[0])
+            x_adv = x_adv - alpha * ord_fn(tf.gradients(loss, x_adv)[0])
         else:
-            x_adv = x_adv + alpha * tf.sign(tf.gradients(loss, x_adv)[0])
+            x_adv = x_adv + alpha * ord_fn(tf.gradients(loss, x_adv)[0])
 
         if faces is not None:
             # constrain perturbations for each point to its corresponding plane
@@ -41,7 +50,7 @@ def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = 
     
     return x_adv
 
-def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, clip_min = None, clip_max = None):
+def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, ord = "inf", clip_min = None, clip_max = None):
     targeted = t_pl is not None
     alpha = eps / float(iter)
 
@@ -57,6 +66,15 @@ def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_ho
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
         normal = normal / tf.norm(normal, axis = 2, keep_dims = True)
 
+    if ord == "inf":
+        ord_fn = tf.sign
+    elif ord == "1":
+        ord_fn = lambda x: x / tf.linalg.norm(x, ord = 1, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+    elif ord == "2":
+        ord_fn = lambda x: x / tf.linalg.norm(x, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+    else:
+        raise ValueError("Only L-inf, L1, and L2 norms are supported!")
+
     x_adv = x_pl
     prev_grad = tf.zeros_like(x_pl)
     for _ in range(iter):
@@ -65,13 +83,14 @@ def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_ho
         grad = tf.gradients(loss, x_adv)[0]
         grad = grad / tf.reduce_mean(tf.abs(grad), axis = list(range(1, x_pl.shape.ndims)), keep_dims = True)
         grad = momentum * prev_grad + grad
+        prev_grad = grad
 
         x_original = x_adv
 
         if targeted:
-            x_adv = x_adv - alpha * tf.sign(grad)
+            x_adv = x_adv - alpha * ord_fn(grad)
         else:
-            x_adv = x_adv + alpha * tf.sign(grad)
+            x_adv = x_adv + alpha * ord_fn(grad)
 
         if faces is not None:
             # constrain perturbations for each point to its corresponding plane

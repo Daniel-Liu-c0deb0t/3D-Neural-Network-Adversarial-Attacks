@@ -10,7 +10,7 @@ sys.path.append(os.path.join(working_dir, "models"))
 sys.path.append(os.path.join(working_dir, "utils"))
 import provider
 
-parser = argparse.ArgumentParser(description = "Evaluates Pointnet on classification.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description = "Evaluates Pointnet++ on classification.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--checkpoint", default = "log/model.ckpt", help = "Path to the model's checkpoint file.")
 parser.add_argument("--output", default = "evaluate", help = "Output directory.")
 parser.add_argument("--data", default = "data/modelnet40_ply_hdf5_2048/test_files.txt", help = "Input data. Either a Numpy file or a text file containing a list of HDF5 files.")
@@ -21,7 +21,7 @@ parser.add_argument("--num-objects", type = int, default = 1000000000, help = "U
 args = parser.parse_args()
 print(args)
 
-model = importlib.import_module("pointnet_cls")
+model = importlib.import_module("pointnet2_cls_ssg")
 class_names = [line.rstrip() for line in open(args.class_names)]
 
 if args.numpy:

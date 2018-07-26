@@ -12,7 +12,7 @@ sys.path.append(os.path.join(working_dir, "utils"))
 import provider
 import pc_util
 
-parser = argparse.ArgumentParser(description = "Adversarial attacks on Pointnet used for classification.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description = "Adversarial attacks on Pointnet++ used for classification.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--checkpoint", default = "log/model.ckpt", help = "Path to the model's checkpoint file.")
 parser.add_argument("--output", default = "adversarial", help = "Output directory.")
 parser.add_argument("--data", default = "data/modelnet40_ply_hdf5_2048/test_files.txt", help = "Input data. Either a Numpy file or a text file containing a list of HDF5 files.")
@@ -30,7 +30,7 @@ parser.add_argument("--norm", default = "inf", help = "Norm used for gradient si
 args = parser.parse_args()
 print(args)
 
-model = importlib.import_module("pointnet_cls")
+model = importlib.import_module("pointnet2_cls_ssg")
 class_names = [line.rstrip() for line in open(args.class_names)]
 
 np.random.seed(0) # fixed seed for consistency
