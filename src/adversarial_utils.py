@@ -18,7 +18,7 @@ def confusion_heatmap(data, path, class_names = None, percentages = True, annota
         total[total == 0] = 1 # handle division by zero
         data = data.astype(float) / total
 
-    heatmap(data, path, "Target Classes", "Predicted Classes", class_names = class_names, percentages = percentages, annotate = annotate)
+    heatmap(data, path, "Labels", "Predicted Classes", class_names = class_names, percentages = percentages, annotate = annotate)
 
 def class_change_heatmap(data, path, class_names = None, percentages = True, annotate = True):
     data = np.array(data)
@@ -29,6 +29,16 @@ def class_change_heatmap(data, path, class_names = None, percentages = True, ann
         data = data.astype(float) / total
 
     heatmap(data, path, "Original Classes", "Classes After Adversarial Attack", class_names = class_names, percentages = percentages, annotate = annotate)
+
+def transfer_heatmap(data, path, class_names = None, percentages = True, annotate = True):
+    data = np.array(data)
+    
+    if percentages:
+        total = np.sum(data, axis = 1, keepdims = True)
+        total[total == 0] = 1 # handle division by zero
+        data = data.astype(float) / total
+
+    heatmap(data, path, "Predictions of the Original Model", "Predictions of This Model", class_names = class_names, percentages = percentages, annotate = annotate)
 
 def targeted_success_rate_heatmap(data, path, total = None, class_names = None, annotate = True):
     data = np.array(data)
@@ -96,9 +106,9 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
 
     if use_momentum:
-        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     else:
-        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.iter_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     
     saver = tf.train.Saver()
 
@@ -216,7 +226,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             np.add.at(class_succeeded, preds[succeeded_idx], 1)
 
             with open(os.path.join(out_dir, "class_stats_eps_%s.csv" % eps_str), "w") as f:
-                f.write("Index, Original Class, Total, Correct, Attack Succeeded, Succeeded / Correct\n")
+                f.write("Index, Original Class, Total, Correct, Attacks Succeeded, Succeeded / Correct\n")
 
                 for i in range(len(class_names)):
                     percent = 0 if class_correct[i] == 0 else float(class_succeeded[i]) / class_correct[i]
@@ -271,9 +281,9 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
     
     if use_momentum:
-        x_adv_op = adversarial_attacks.momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     else:
-        x_adv_op = adversarial_attacks.iter_grad_sign_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.iter_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     
     saver = tf.train.Saver()
 
@@ -390,7 +400,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 losses_adv = np.array(losses_adv)
                 preds_adv = np.concatenate(preds_adv)
 
-                succeeded_idx = preds_adv == np.repeat(curr_target, len(data_x))
+                succeeded_idx = (preds != curr_target) & (preds_adv == curr_target)
                 succeeded = np.sum(succeeded_idx)
                 total_succeeded += succeeded
                 curr_succeeded_x_original.append(data_x[succeeded_idx])
@@ -413,7 +423,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
 
             with open(os.path.join(out_dir, "targeted_stats_eps_%s.csv" % eps_str), "w") as f:
                 percent = 0 if correct == 0 else float(total_succeeded) / correct
-                f.write("Total %d, Correct %d, Average Attack Succeeded Per Target Class %d, Average Succeeded / Correct %.3f\n" % (total, correct, total_succeeded, percent))
+                f.write("Total %d, Correct %d, Average Attacks Succeeded Per Target Class %d, Average Succeeded / Correct %.3f\n" % (total, correct, total_succeeded, percent))
             
             succeeded_x_original.append(curr_succeeded_x_original)
             succeeded_target.append(curr_succeeded_target)
@@ -428,7 +438,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
     else:
         return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_faces
 
-def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, one_hot = True, extra_feed_dict = None):
+def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, class_names, data_p = None, one_hot = True, extra_feed_dict = None):
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -441,6 +451,8 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
 
     data_x = np.array(data_x)
     data_t = np.array(data_t)
+    if data_p is not None:
+        data_p = np.array(data_p)
 
     saver = tf.train.Saver()
 
@@ -471,19 +483,39 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
 
         if one_hot:
             sparse_t = np.argmax(data_t, axis = 1)
+            if data_p is not None:
+                sparse_p = np.argmax(data_p, axis = 1)
         else:
             sparse_t = data_t
+            sparse_p = data_p
         
         correct = np.sum(preds == sparse_t)
+        if data_p is not None:
+            match = np.sum(preds == sparse_p)
 
         target_vs_preds = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
         np.add.at(target_vs_preds, [sparse_t, preds], 1)
+        if data_p is not None:
+            preds_vs_preds = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
+            np.add.at(preds_vs_preds, [sparse_p, preds], 1)
 
-        class_change_heatmap(target_vs_preds, os.path.join(out_dir, "target_vs_preds.png"), class_names = class_names, percentages = False)
-        class_change_heatmap(target_vs_preds, os.path.join(out_dir, "percent_target_vs_preds.png"), class_names = class_names, annotate = False)
+        if data_p is None:
+            confusion_heatmap(target_vs_preds, os.path.join(out_dir, "labels_vs_preds.png"), class_names = class_names, percentages = False)
+            confusion_heatmap(target_vs_preds, os.path.join(out_dir, "percent_labels_vs_preds.png"), class_names = class_names, annotate = False)
+        else:
+            class_change_heatmap(target_vs_preds, os.path.join(out_dir, "labels_vs_preds.png"), class_names = class_names, percentages = False)
+            class_change_heatmap(target_vs_preds, os.path.join(out_dir, "percent_labels_vs_preds.png"), class_names = class_names, annotate = False)
+            transfer_heatmap(preds_vs_preds, os.path.join(out_dir, "preds_vs_preds.png"), class_names = class_names, percentages = False)
+            transfer_heatmap(preds_vs_preds, os.path.join(out_dir, "percent_preds_vs_preds.png"), class_names = class_names, annotate = False)
 
         print("Total: %d" % len(data_x))
-        print("Correct: %d" % correct)
-        print("Correct / Total: %.3f" % (float(correct) / len(data_x)))
+        if data_p is None:
+            print("Correct: %d" % correct)
+            print("Correct / Total: %.3f" % (float(correct) / len(data_x)))
+        else:
+            print("Attacks Succeeded: %d" % (len(data_x) - correct))
+            print("Succeeded / Total: %.3f" % (float(len(data_x) - correct) / len(data_x)))
+            print("Transfers With Matching Predictions: %d" % match)
+            print("Matching / Succeeded: %.3f" % (float(match) / (len(data_x) - correct)))
 
     print("Done!")

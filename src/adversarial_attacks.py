@@ -1,13 +1,13 @@
 import tensorflow as tf
 
-def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, ord = "inf", clip_min = None, clip_max = None):
+def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, ord = "inf", clip_min = None, clip_max = None):
     targeted = t_pl is not None
     alpha = eps / float(iter)
 
     # use the prediction class to prevent label leaking
     if not targeted:
         logits, _ = model_loss_fn(x_pl, None)
-        t_pl = tf.argmax(logits, 1)
+        t_pl = tf.argmax(logits, axis = 1)
         if one_hot:
             t_pl = tf.one_hot(t_pl, tf.shape(logits)[1])
         t_pl = tf.stop_gradient(t_pl)
@@ -50,14 +50,14 @@ def iter_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = 
     
     return x_adv
 
-def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, ord = "inf", clip_min = None, clip_max = None):
+def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, ord = "inf", clip_min = None, clip_max = None):
     targeted = t_pl is not None
     alpha = eps / float(iter)
 
     # use the prediction class to prevent label leaking
     if not targeted:
         logits, _ = model_loss_fn(x_pl, None)
-        t_pl = tf.argmax(logits, 1)
+        t_pl = tf.argmax(logits, axis = 1)
         if one_hot:
             t_pl = tf.one_hot(t_pl, tf.shape(logits)[1])
         t_pl = tf.stop_gradient(t_pl)
@@ -102,6 +102,63 @@ def momentum_grad_sign_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_ho
         if clip_min is not None and clip_max is not None:
             x_adv = tf.clip_by_value(x_adv, clip_min, clip_max)
         
+        x_adv = tf.stop_gradient(x_adv)
+    
+    return x_adv
+
+def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
+    targeted = t_pl is not None
+    
+    # use the prediction class to prevent label leaking
+    if not targeted:
+        logits, _ = model_loss_fn(x_pl, None)
+        t_pl = tf.argmax(logits, axis = 1)
+        t_pl = tf.stop_gradient(t_pl)
+    
+    if targeted and one_hot:
+        t_pl = tf.argmax(t_pl, axis = 1)
+
+    if faces is not None:
+        normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
+        normal = normal / tf.norm(normal, axis = 2, keep_dims = True)
+
+    t_pl = tf.stack([t_pl, tf.range(tf.shape(t_pl)[0])], axis = 1)
+
+    x_adv = x_pl
+    for _ in range(iter):
+        logits, _ = model_loss_fn(x_adv, None)
+
+        total_grad = tf.gradients(logits, x_adv)[0]
+        target_grad = tf.gradients(tf.gather_nd(logits, t_pl), x_adv)[0]
+        other_grad = total_grad - target_grad
+
+        if targeted:
+            # target should increase, others should decrease
+            cond = tf.to_float((target_grad >= 0) & (other_grad <= 0))
+            saliency = cond * target_grad * tf.abs(other_grad)
+        else:
+            # others should increase, target should decrease
+            cond = tf.to_float((target_grad <= 0) & (other_grad >= 0))
+            saliency = cond * tf.abs(target_grad) * other_grad
+
+        size = tf.reduce_prod(tf.shape(saliency)[1:])
+        idx = tf.argmax(tf.reshape(saliency, [-1, size]), axis = 1)
+        perturb = tf.one_hot(idx, size, on_value = eps, off_value = 0)
+        perturb = tf.reshape(perturb, tf.shape(saliency))
+
+        x_original = x_adv
+        x_adv = x_adv + perturb
+
+        if faces is not None:
+            # constrain perturbations for each point to its corresponding plane
+            x_adv = x_adv - normal * tf.reduce_sum(normal * (x_adv - faces[:, :, 0]), axis = 2, keep_dims = True)
+            # clip perturbations that goes outside each triangle
+            if restrict:
+                x_adv = triangle_border_intersections_op(x_original, x_adv, faces)
+
+        if clip_min is not None and clip_max is not None:
+            x_adv = tf.clip_by_value(x_adv, clip_min, clip_max)
+
         x_adv = tf.stop_gradient(x_adv)
     
     return x_adv

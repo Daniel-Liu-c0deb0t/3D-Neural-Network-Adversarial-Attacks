@@ -17,7 +17,6 @@ parser.add_argument("--checkpoint", default = "log/model.ckpt", help = "Path to 
 parser.add_argument("--output", default = "adversarial", help = "Output directory.")
 parser.add_argument("--data", default = "data/modelnet40_ply_hdf5_2048/test_files.txt", help = "Input data. Either a Numpy file or a text file containing a list of HDF5 files.")
 parser.add_argument("--class-names", default = "data/modelnet40_ply_hdf5_2048/shape_names.txt", help = "Text file containing a list of class names.")
-parser.add_argument("--numpy", action = "store_true", help = "Use the data file as a numpy file.")
 parser.add_argument("--num-points", type = int, default = 1024, help = "Number of points to use.")
 parser.add_argument("--num-objects", type = int, default = 1000000000, help = "Number of correctly classified objects to use. Specify a very large number to use all correctly classified objects.")
 parser.add_argument("--targeted", action = "store_true", help = "Run targeted attack.")
@@ -35,14 +34,16 @@ class_names = [line.rstrip() for line in open(args.class_names)]
 
 np.random.seed(0) # fixed seed for consistency
 
-if args.numpy:
-    file = np.load(args.data)
-    data_x = file["points"][:, :args.num_points, :]
-    if args.projection:
-        data_f = file["faces"][:, :args.num_points, :3, :]
-    else:
-        data_f = None
-    data_t = file["labels"]
+numpy_file = args.data.endswith(".npz")
+
+if numpy_file:
+    with np.load(args.data) as file:
+        data_x = file["points"][:, :args.num_points, :]
+        if args.projection:
+            data_f = file["faces"][:, :args.num_points, :3, :]
+        else:
+            data_f = None
+        data_t = file["labels"]
 else:
     test_files = provider.getDataFiles(args.data)
 
