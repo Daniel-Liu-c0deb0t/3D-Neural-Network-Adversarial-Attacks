@@ -16,7 +16,7 @@ parser.add_argument("--output", default = "evaluate", help = "Output directory."
 parser.add_argument("--data", default = "data/modelnet40_ply_hdf5_2048/test_files.txt", help = "Input data. Either a Numpy file or a text file containing a list of HDF5 files.")
 parser.add_argument("--class-names", default = "data/modelnet40_ply_hdf5_2048/shape_names.txt", help = "Text file containing a list of class names.")
 parser.add_argument("--num-points", type = int, default = 1024, help = "Number of points to use.")
-parser.add_argument("--sparse-target", type = int, default = -1, help = "Sparse adversarial attack target.")
+parser.add_argument("--sparse-target", type = int, default = None, help = "Sparse adversarial attack target.")
 parser.add_argument("--num-objects", type = int, default = 1000000000, help = "Use the first few objects. Specify a very large number to use all objects.")
 args = parser.parse_args()
 print(args)
@@ -35,7 +35,7 @@ if numpy_file:
             data_t = file["labels"]
             if "pred_adv" in file:
                 data_p = file["pred_adv"]
-            elif args.sparse_target != -1:
+            elif args.sparse_target is not None:
                 data_p = np.repeat(args.sparse_target, repeats = len(data_x))
         else:
             data_x = file["points"][:, :args.num_points, :]

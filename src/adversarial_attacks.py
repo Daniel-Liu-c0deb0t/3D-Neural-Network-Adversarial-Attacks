@@ -1,8 +1,11 @@
 import tensorflow as tf
 
-def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, ord = "inf", clip_min = None, clip_max = None):
+def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, ord = "inf", clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0):
     targeted = t_pl is not None
     alpha = eps / float(iter)
+    if clip_norm is not None:
+        clip_norm = clip_norm / float(iter)
+    min_norm = min_norm / float(iter)
 
     # use the prediction class to prevent label leaking
     if not targeted:
@@ -14,7 +17,7 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
 
     if faces is not None:
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
-        normal = normal / tf.norm(normal, axis = 2, keep_dims = True)
+        normal = normal / tf.linalg.norm(normal, axis = 2, keep_dims = True)
 
     if ord == "inf":
         ord_fn = tf.sign
@@ -31,10 +34,16 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
 
         x_original = x_adv
 
+        perturb = alpha * ord_fn(tf.gradients(loss, x_adv)[0])
+        if clip_norm is not None:
+            perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
+        perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
+        perturb = tf.where((perturb_norm < min_norm) & tf.fill(tf.shape(perturb), True), tf.zeros_like(perturb), perturb)
+
         if targeted:
-            x_adv = x_adv - alpha * ord_fn(tf.gradients(loss, x_adv)[0])
+            x_adv = x_adv - perturb
         else:
-            x_adv = x_adv + alpha * ord_fn(tf.gradients(loss, x_adv)[0])
+            x_adv = x_adv + perturb
 
         if faces is not None:
             # constrain perturbations for each point to its corresponding plane
@@ -50,9 +59,12 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
     
     return x_adv
 
-def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, ord = "inf", clip_min = None, clip_max = None):
+def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, momentum = 1.0, restrict = False, ord = "inf", clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0):
     targeted = t_pl is not None
     alpha = eps / float(iter)
+    if clip_norm is not None:
+        clip_norm = clip_norm / float(iter)
+    min_norm = min_norm / float(iter)
 
     # use the prediction class to prevent label leaking
     if not targeted:
@@ -64,7 +76,7 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
 
     if faces is not None:
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
-        normal = normal / tf.norm(normal, axis = 2, keep_dims = True)
+        normal = normal / tf.linalg.norm(normal, axis = 2, keep_dims = True)
 
     if ord == "inf":
         ord_fn = tf.sign
@@ -87,10 +99,16 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
 
         x_original = x_adv
 
+        perturb = alpha * ord_fn(grad)
+        if clip_norm is not None:
+            perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
+        perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
+        perturb = tf.where((perturb_norm < min_norm) & tf.fill(tf.shape(perturb), True), tf.zeros_like(perturb), perturb)
+
         if targeted:
-            x_adv = x_adv - alpha * ord_fn(grad)
+            x_adv = x_adv - perturb
         else:
-            x_adv = x_adv + alpha * ord_fn(grad)
+            x_adv = x_adv + perturb
 
         if faces is not None:
             # constrain perturbations for each point to its corresponding plane
@@ -120,11 +138,13 @@ def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one
 
     if faces is not None:
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
-        normal = normal / tf.norm(normal, axis = 2, keep_dims = True)
+        normal = normal / tf.linalg.norm(normal, axis = 2, keep_dims = True)
 
-    t_pl = tf.stack([t_pl, tf.range(tf.shape(t_pl)[0])], axis = 1)
+    t_pl = tf.stack([tf.to_int64(t_pl), tf.range(tf.to_int64(tf.shape(t_pl)[0]))], axis = 1)
 
     x_adv = x_pl
+    size = tf.reduce_prod(tf.shape(x_adv)[1:])
+    unused = tf.fill([tf.shape(x_adv)[0], size], True)
     for _ in range(iter):
         logits, _ = model_loss_fn(x_adv, None)
 
@@ -134,17 +154,32 @@ def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one
 
         if targeted:
             # target should increase, others should decrease
-            cond = tf.to_float((target_grad >= 0) & (other_grad <= 0))
-            saliency = cond * target_grad * tf.abs(other_grad)
+            saliency = target_grad * tf.abs(other_grad)
         else:
             # others should increase, target should decrease
-            cond = tf.to_float((target_grad <= 0) & (other_grad >= 0))
-            saliency = cond * tf.abs(target_grad) * other_grad
+            saliency = tf.abs(target_grad) * other_grad
 
-        size = tf.reduce_prod(tf.shape(saliency)[1:])
-        idx = tf.argmax(tf.reshape(saliency, [-1, size]), axis = 1)
-        perturb = tf.one_hot(idx, size, on_value = eps, off_value = 0)
-        perturb = tf.reshape(perturb, tf.shape(saliency))
+        saliency = tf.reshape(saliency, [-1, size])
+        saliency = saliency[:, tf.newaxis, :] + saliency[:, :, tf.newaxis]
+        target_grad = tf.reshape(target_grad, [-1, size])
+        other_grad = tf.reshape(other_grad, [-1, size])
+        target_grad = target_grad[:, tf.newaxis, :] + target_grad[:, :, tf.newaxis]
+        other_grad = other_grad[:, tf.newaxis, :] + other_grad[:, :, tf.newaxis]
+
+        if targeted:
+            cond = unused[:, tf.newaxis, :] & unused[:, :, tf.newaxis] & (target_grad >= 0.0) & (other_grad <= 0.0)
+        else:
+            cond = unused[:, tf.newaxis, :] & unused[:, :, tf.newaxis] & (target_grad <= 0.0) & (other_grad >= 0.0)
+
+        diag_zeros = tf.ones([size, size])
+        diag_zeros = tf.linalg.set_diag(diag_zeros, tf.zeros(size))
+
+        idx_both = tf.argmax(tf.reshape(tf.to_float(cond) * diag_zeros[tf.newaxis, :, :] * saliency, [-1, size * size]), axis = 1)
+        i = tf.to_int64(idx_both / tf.to_int64(size))
+        j = tf.to_int64(idx_both % tf.to_int64(size))
+        perturb = tf.one_hot(i, size, on_value = eps, off_value = 0.0) + tf.one_hot(j, size, on_value = eps, off_value = 0.0)
+        perturb = tf.reshape(perturb, tf.shape(x_adv))
+        unused = unused & tf.one_hot(i, size, on_value = False, off_value = True) & tf.one_hot(j, size, on_value = False, off_value = True)
 
         x_original = x_adv
         x_adv = x_adv + perturb
@@ -180,7 +215,7 @@ def triangle_border_intersections_op(p1, p2, triangles):
 
     # intersection between line and triangle sides as planes
     dot = tf.reduce_sum(side_normals * d[:, :, tf.newaxis, :], axis = 3)
-    zero_mask = tf.equal(dot, 0)
+    zero_mask = tf.equal(dot, 0.0)
     dot = tf.where(zero_mask, tf.ones_like(dot), dot) # prevent division by zero
     a = p[:, :, tf.newaxis, :] - triangles
     b = -tf.reduce_sum(side_normals * a, axis = 3) / dot

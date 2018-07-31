@@ -22,10 +22,12 @@ parser.add_argument("--num-objects", type = int, default = 1000000000, help = "N
 parser.add_argument("--targeted", action = "store_true", help = "Run targeted attack.")
 parser.add_argument("--iter", type = int, default = 10, help = "Number of iterations for iterative gradient sign.")
 parser.add_argument("--eps", nargs = "+", type = float, default = [0.1, 0.5], help = "List of epsilon values for iterative gradient sign.")
-parser.add_argument("--momentum", action = "store_true", help = "Use momentum with iterative gradient sign.")
+parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency"], default = "iterative", help = "Which algorithm to use when perturbing points.")
 parser.add_argument("--projection", action = "store_true", help = "Project the gradient vectors onto each point's corresponding triangle.")
 parser.add_argument("--restrict", action = "store_true", help = "Restrict the gradient vectors to be inside each point's corresponding triangle.")
 parser.add_argument("--norm", default = "inf", help = "Norm used for gradient sign.")
+parser.add_argument("--clip-norm", type = float, default = None, help = "Value to clip L2 norm by.")
+parser.add_argument("--min-norm", type = float, default = 0.0, help = "Ignore perturbations with a smaller L2 norm than this.")
 args = parser.parse_args()
 print(args)
 
@@ -72,7 +74,7 @@ def model_loss_fn(x, t):
     return y, loss
 
 if args.targeted:
-    res = adversarial_utils.targeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, momentum = args.momentum, one_hot = False, extra_feed_dict = {is_training: False})
+    res = adversarial_utils.targeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, mode = args.mode, one_hot = False, clip_norm = args.clip_norm, min_norm = args.min_norm, extra_feed_dict = {is_training: False})
     if data_f is None:
         x_original, target, x_adv = res
     else:
@@ -94,7 +96,7 @@ if args.targeted:
                 img = pc_util.point_cloud_three_views(x_adv[eps_idx][i][j])
                 scipy.misc.imsave(img_file, img)
 else:
-    res = adversarial_utils.untargeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, momentum = args.momentum, one_hot = False, extra_feed_dict = {is_training: False})
+    res = adversarial_utils.untargeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, mode = args.mode, one_hot = False, clip_norm = args.clip_norm, min_norm = args.min_norm, extra_feed_dict = {is_training: False})
     if data_f is None:
         x_original, target, x_adv, pred_adv = res
     else:
