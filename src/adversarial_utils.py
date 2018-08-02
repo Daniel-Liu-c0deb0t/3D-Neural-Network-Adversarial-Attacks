@@ -527,3 +527,45 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
             print("Matching / Succeeded: %.3f" % (float(match) / (len(data_x) - correct)))
 
     print("Done!")
+
+def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x_adv, class_names, extra_feed_dict = None):
+    if extra_feed_dict is None:
+        extra_feed_dict = {}
+    
+    model_loss_fn(x_pl, None)
+    features_op = tf.get_default_graph().get_tensor_by_name("feature_vector:0")
+
+    data_x_original = np.array(data_x_original)
+    data_x_adv = np.array(data_x_adv)
+
+    saver = tf.train.Saver()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config = config) as sess:
+        saver.restore(sess, model_path)
+        print("Model restored!")
+
+        features_original = []
+        features_adv = []
+        for i in range(len(data_x_original)):
+            feed_dict = {
+                x_pl: [data_x_original[i]]
+            }
+            feed_dict.update(extra_feed_dict)
+            features = sess.run(features_op, feed_dict = feed_dict)
+            features_original.append(features)
+
+            feed_dict = {
+                x_pl: [data_x_adv[i]]
+            }
+            feed_dict.update(extra_feed_dict)
+            features = sess.run(features_op, feed_dict = feed_dict)
+            features_adv.append(features)
+        
+        features_original = np.concatenate(features_original)
+        features_adv = np.concatenate(features_adv)
+
+    print("Done!")
+
+    return features_original, features_adv

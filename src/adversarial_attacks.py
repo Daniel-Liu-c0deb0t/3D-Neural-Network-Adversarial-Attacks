@@ -149,16 +149,10 @@ def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one
         logits, _ = model_loss_fn(x_adv, None)
 
         total_grad = tf.gradients(logits, x_adv)[0]
-        target_grad = tf.gradients(tf.gather_nd(logits, t_pl), x_adv)[0]
+        target_grad = tf.gradients(tf.reduce_sum(tf.one_hot(t_pl, tf.shape(logits)[1]) * logits, axis = 1), x_adv)[0]
         other_grad = total_grad - target_grad
 
-        if targeted:
-            # target should increase, others should decrease
-            saliency = target_grad * tf.abs(other_grad)
-        else:
-            # others should increase, target should decrease
-            saliency = tf.abs(target_grad) * other_grad
-
+        saliency = tf.abs(target_grad) * tf.abs(other_grad)
         saliency = tf.reshape(saliency, [-1, size])
         saliency = saliency[:, tf.newaxis, :] + saliency[:, :, tf.newaxis]
         target_grad = tf.reshape(target_grad, [-1, size])
@@ -167,8 +161,10 @@ def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one
         other_grad = other_grad[:, tf.newaxis, :] + other_grad[:, :, tf.newaxis]
 
         if targeted:
+            # target should increase, others should decrease
             cond = unused[:, tf.newaxis, :] & unused[:, :, tf.newaxis] & (target_grad >= 0.0) & (other_grad <= 0.0)
         else:
+            # others should increase, target should decrease
             cond = unused[:, tf.newaxis, :] & unused[:, :, tf.newaxis] & (target_grad <= 0.0) & (other_grad >= 0.0)
 
         diag_zeros = tf.ones([size, size])
