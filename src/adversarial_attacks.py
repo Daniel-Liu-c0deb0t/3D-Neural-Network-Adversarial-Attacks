@@ -38,7 +38,7 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
         if clip_norm is not None:
             perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
         perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
-        perturb = tf.where((perturb_norm < min_norm) & tf.fill(tf.shape(perturb), True), tf.zeros_like(perturb), perturb)
+        perturb = perturb * tf.to_float(perturb_norm >= min_norm)[..., tf.newaxis]
 
         if targeted:
             x_adv = x_adv - perturb
@@ -103,7 +103,7 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
         if clip_norm is not None:
             perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
         perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
-        perturb = tf.where((perturb_norm < min_norm) & tf.fill(tf.shape(perturb), True), tf.zeros_like(perturb), perturb)
+        perturb = perturb * tf.to_float(perturb_norm >= min_norm)[..., tf.newaxis]
 
         if targeted:
             x_adv = x_adv - perturb
@@ -124,7 +124,7 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
     
     return x_adv
 
-def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
+def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
     
     # use the prediction class to prevent label leaking
@@ -140,7 +140,65 @@ def jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = None, faces = None, one
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
         normal = normal / tf.linalg.norm(normal, axis = 2, keep_dims = True)
 
-    t_pl = tf.stack([tf.to_int64(t_pl), tf.range(tf.to_int64(tf.shape(t_pl)[0]))], axis = 1)
+    x_adv = x_pl
+    unused = tf.fill(tf.shape(x_adv)[:2], True)
+    for _ in range(iter):
+        logits, _ = model_loss_fn(x_adv, None)
+
+        total_grad = tf.gradients(logits, x_adv)[0]
+        target_grad = tf.gradients(tf.reduce_sum(tf.one_hot(t_pl, tf.shape(logits)[1]) * logits, axis = 1), x_adv)[0]
+        other_grad = total_grad - target_grad
+
+        saliency = tf.abs(target_grad) * tf.abs(other_grad)
+        increase = (target_grad >= 0.0) & (other_grad <= 0.0)
+        decrease = (target_grad <= 0.0) & (other_grad >= 0.0)
+        saliency = saliency * tf.to_float((increase | decrease) & unused[:, :, tf.newaxis])
+        saliency = tf.reduce_sum(saliency, axis = 2)
+
+        idx = tf.argmax(saliency, axis = 1)
+        one_hot = tf.one_hot(idx, tf.shape(saliency)[1], on_value = True, off_value = False)
+        increase = increase & one_hot[:, :, tf.newaxis]
+        decrease = decrease & one_hot[:, :, tf.newaxis]
+        unused = unused & ~one_hot
+
+        x_original = x_adv
+
+        perturb = tf.to_float(increase) * tf.fill(tf.shape(x_adv), -eps) + tf.to_float(decrease) * tf.fill(tf.shape(x_adv), eps)
+
+        if targeted:
+            x_adv = x_adv - perturb
+        else:
+            x_adv = x_adv + perturb
+
+        if faces is not None:
+            # constrain perturbations for each point to its corresponding plane
+            x_adv = x_adv - normal * tf.reduce_sum(normal * (x_adv - faces[:, :, 0]), axis = 2, keep_dims = True)
+            # clip perturbations that goes outside each triangle
+            if restrict:
+                x_adv = triangle_border_intersections_op(x_original, x_adv, faces)
+
+        if clip_min is not None and clip_max is not None:
+            x_adv = tf.clip_by_value(x_adv, clip_min, clip_max)
+
+        x_adv = tf.stop_gradient(x_adv)
+    
+    return x_adv
+
+def jacobian_saliency_map_pair_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
+    targeted = t_pl is not None
+    
+    # use the prediction class to prevent label leaking
+    if not targeted:
+        logits, _ = model_loss_fn(x_pl, None)
+        t_pl = tf.argmax(logits, axis = 1)
+        t_pl = tf.stop_gradient(t_pl)
+    
+    if targeted and one_hot:
+        t_pl = tf.argmax(t_pl, axis = 1)
+
+    if faces is not None:
+        normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
+        normal = normal / tf.linalg.norm(normal, axis = 2, keep_dims = True)
 
     x_adv = x_pl
     size = tf.reduce_prod(tf.shape(x_adv)[1:])

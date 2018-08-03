@@ -42,7 +42,9 @@ elif load_path[-3:] == "npz":
         
         plt.gca().plot_trisurf(*unique.T, triangles = triangles)
 
-print("Number of points: %s" % len(xs))
+print("Number of points: %d" % len(xs))
+norm = np.linalg.norm(np.stack([xs, ys, zs], axis = 1), axis = 1)
+print("Maximum L2 norm: %.3f" % np.max(norm))
 
 plt.gca().scatter(xs, ys, zs, zdir = "y", s = 5)
 plt.axis("scaled")

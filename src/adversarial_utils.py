@@ -110,7 +110,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
     elif mode == "momentum":
         x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
     elif mode == "saliency":
-        x_adv_op = adversarial_attacks.jacobian_saliency_map_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     else:
         raise ValueError("Only iterative, momentum, and saliency modes are supported!")
     
@@ -289,7 +289,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
     elif mode == "momentum":
         x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
     elif mode == "saliency":
-        x_adv_op = adversarial_attacks.jacobian_saliency_map_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
     else:
         raise ValueError("Only iterative, momentum, and saliency modes are supported!")
     
