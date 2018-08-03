@@ -12,7 +12,7 @@ sys.path.append(os.path.join(working_dir, "utils"))
 import provider
 import pc_util
 
-parser = argparse.ArgumentParser(description = "Adversarial attacks on Pointnet++ used for classification.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+parser = argparse.ArgumentParser(description = "Adversarial attacks on PointNet++ used for classification.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--checkpoint", default = "log/model.ckpt", help = "Path to the model's checkpoint file.")
 parser.add_argument("--output", default = "adversarial", help = "Output directory.")
 parser.add_argument("--data", default = "data/modelnet40_ply_hdf5_2048/test_files.txt", help = "Input data. Either a Numpy file or a text file containing a list of HDF5 files.")
