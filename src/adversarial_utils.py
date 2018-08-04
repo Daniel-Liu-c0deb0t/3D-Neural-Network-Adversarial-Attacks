@@ -542,30 +542,43 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
 
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    with tf.Session(config = config) as sess:
-        saver.restore(sess, model_path)
-        print("Model restored!")
+    sess = tf.Session(config = config)
+    saver.restore(sess, model_path)
+    print("Model restored!")
 
-        features_original = []
-        features_adv = []
+    features_original = []
+    features_adv = []
+    for i in range(len(data_x_original)):
+        feed_dict = {
+            x_pl: [data_x_original[i]]
+        }
+        feed_dict.update(extra_feed_dict)
+        features = sess.run(features_op, feed_dict = feed_dict)
+        features_original.append(features)
+
+        feed_dict = {
+            x_pl: [data_x_adv[i]]
+        }
+        feed_dict.update(extra_feed_dict)
+        features = sess.run(features_op, feed_dict = feed_dict)
+        features_adv.append(features)
+    
+    features_original = np.concatenate(features_original)
+    features_adv = np.concatenate(features_adv)
+
+    def feature_grad_fn(idx, adv = False):
+        one_hot = tf.one_hot(tf.constant(idx)[tf.newaxis], tf.shape(features_op)[1])
+        grad_op = tf.gradients(one_hot * features_op, x_pl)[0]
+
+        grads = []
         for i in range(len(data_x_original)):
-            feed_dict = {
-                x_pl: [data_x_original[i]]
-            }
+            feed_dict = {}
+            feed_dict[x_pl] = [data_x_adv[i]] if adv else [data_x_original[i]]
             feed_dict.update(extra_feed_dict)
-            features = sess.run(features_op, feed_dict = feed_dict)
-            features_original.append(features)
-
-            feed_dict = {
-                x_pl: [data_x_adv[i]]
-            }
-            feed_dict.update(extra_feed_dict)
-            features = sess.run(features_op, feed_dict = feed_dict)
-            features_adv.append(features)
+            grads.append(sess.run(grad_op, feed_dict = feed_dict))
         
-        features_original = np.concatenate(features_original)
-        features_adv = np.concatenate(features_adv)
+        return np.concatenate(grads)
 
     print("Done!")
 
-    return features_original, features_adv
+    return features_original, features_adv, feature_grad_fn, lambda: sess.close()

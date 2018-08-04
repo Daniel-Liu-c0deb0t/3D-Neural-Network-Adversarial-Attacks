@@ -41,7 +41,7 @@ def model_loss_fn(x, t):
         loss = model.get_loss(y, t, end_points)
     return y, loss
 
-features_original, features_adv = adversarial_utils.get_feature_vectors(args.checkpoint, x_pl, model_loss_fn, data_x_original, data_x_adv, class_names, extra_feed_dict = {is_training: False})
+features_original, features_adv, feature_grad_fn, sess_close = adversarial_utils.get_feature_vectors(args.checkpoint, x_pl, model_loss_fn, data_x_original, data_x_adv, class_names, extra_feed_dict = {is_training: False})
 
 def print_per_class(per_class):
     for i, val in enumerate(per_class):
@@ -145,18 +145,25 @@ adversarial_utils.heatmap(pair_dist_pred_adv_original, os.path.join(args.output,
 adversarial_utils.heatmap(pair_dist_pred_adv, os.path.join(args.output, "adversarial_pred_adv_dist.png"), "Adversarial", "Original", class_names = class_names, percentages = False, annotate = False)
 adversarial_utils.heatmap(pair_dist_pred_adv - pair_dist_pred_adv_original, os.path.join(args.output, "adversarial_pred_adv_dist_change.png"), "Adversarial", "Original", class_names = class_names, percentages = False, annotate = False)
 
-def kth_max_freq(a, kth):
+def top_k_freq(a, k):
     res = defaultdict(int)
-    max_idx = np.argpartition(np.abs(a), kth = -kth - 1, axis = 1)[:, -kth - 1]
-    for i in max_idx:
-        res[i] += 1
-    return res
+    max_idx = np.argsort(np.abs(a), axis = 1)[:, -k - 1:]
+    for idx in max_idx:
+        for i in idx:
+            res[i] += 1
+    return sorted(res.items(), key = lambda x: x[1], reverse = True)
 
-print("Number of times a dimension changes the most:")
-print(kth_max_freq(diff, 0))
+print("Dimensions that changed the most:")
+freq = top_k_freq(diff, 5)[:5]
+print(freq)
+idx = list(zip(*freq))[0]
+print(idx)
 
-print("\nNumber of times a dimension changes second most:")
-print(kth_max_freq(diff, 1))
+grads = []
+for i in idx:
+    grads.append(feature_grad_fn(i))
 
-print("\nNumber of times a dimension changes third most:")
-print(kth_max_freq(diff, 2))
+grads = np.array(grads)
+sess_close()
+
+np.savez_compressed(os.path.join(args.output, "feature_vector_saliency.npz"), points = data_x_original, labels = labels, saliency = grads)
