@@ -568,6 +568,7 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
 
     def feature_grad_fn(idx, adv = False):
         one_hot = tf.one_hot(tf.constant(idx)[tf.newaxis], tf.shape(features_op)[1])
+        one_hot = tf.stop_gradient(one_hot)
         grad_op = tf.gradients(one_hot * features_op, x_pl)[0]
 
         grads = []

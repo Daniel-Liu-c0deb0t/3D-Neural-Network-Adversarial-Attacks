@@ -135,6 +135,7 @@ def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = No
     
     if targeted and one_hot:
         t_pl = tf.argmax(t_pl, axis = 1)
+        t_pl = tf.stop_gradient(t_pl)
 
     if faces is not None:
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
@@ -146,7 +147,7 @@ def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = No
         logits, _ = model_loss_fn(x_adv, None)
 
         total_grad = tf.gradients(logits, x_adv)[0]
-        target_grad = tf.gradients(tf.reduce_sum(tf.one_hot(t_pl, tf.shape(logits)[1]) * logits, axis = 1), x_adv)[0]
+        target_grad = tf.gradients(tf.reduce_sum(tf.stop_gradient(tf.one_hot(t_pl, tf.shape(logits)[1])) * logits, axis = 1), x_adv)[0]
         other_grad = total_grad - target_grad
 
         saliency = tf.abs(target_grad) * tf.abs(other_grad)
@@ -195,6 +196,7 @@ def jacobian_saliency_map_pair_op(x_pl, model_loss_fn, t_pl = None, faces = None
     
     if targeted and one_hot:
         t_pl = tf.argmax(t_pl, axis = 1)
+        t_pl = tf.stop_gradient(t_pl)
 
     if faces is not None:
         normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
@@ -207,7 +209,7 @@ def jacobian_saliency_map_pair_op(x_pl, model_loss_fn, t_pl = None, faces = None
         logits, _ = model_loss_fn(x_adv, None)
 
         total_grad = tf.gradients(logits, x_adv)[0]
-        target_grad = tf.gradients(tf.reduce_sum(tf.one_hot(t_pl, tf.shape(logits)[1]) * logits, axis = 1), x_adv)[0]
+        target_grad = tf.gradients(tf.reduce_sum(tf.stop_gradient(tf.one_hot(t_pl, tf.shape(logits)[1])) * logits, axis = 1), x_adv)[0]
         other_grad = total_grad - target_grad
 
         saliency = tf.abs(target_grad) * tf.abs(other_grad)

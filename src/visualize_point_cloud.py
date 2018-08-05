@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-load_path = "point_clouds/pointnet/feature_iter_l2/feature_vector_saliency.npz"
+load_path = "point_clouds/pointnet/feature_iter_l2/feature_vector_saliency_original.npz"
 idx = 3
 num_points_max = 1024
 triangle_mesh = False
@@ -64,12 +64,14 @@ if saliency is None:
     scale_plot()
 else:
     saliency = np.linalg.norm(saliency, axis = 2)
-    saliency = np.clip(saliency, 0.0, 0.05)
+    print("Max saliency norm: %.3f" % np.max(saliency))
+    print("Avg saliency norm: %.3f" % np.mean(saliency))
+    saliency = np.clip(saliency / (np.mean(saliency) * 2.0), 0.0, 1.0)
     for i in range(len(saliency)):
         plt.subplot(1, len(saliency), i + 1, projection = "3d")
         if triangle_mesh:
             plt.gca().plot_trisurf(*unique.T, triangles = triangles)
-        plt.gca().scatter(xs, ys, zs, zdir = "y", c = saliency[i], cmap = "viridis", s = 5)
+        plt.gca().scatter(xs, ys, zs, zdir = "y", c = saliency[i], cmap = "viridis_r", s = 5)
         scale_plot()
 
 plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)

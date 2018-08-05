@@ -159,11 +159,15 @@ print(freq)
 idx = list(zip(*freq))[0]
 print(idx)
 
-grads = []
+grads_adv = []
+grads_original = []
 for i in idx:
-    grads.append(feature_grad_fn(i))
+    grads_adv.append(feature_grad_fn(i, adv = True))
+    grads_original.append(feature_grad_fn(i, adv = False))
 
-grads = np.array(grads)
+grads_adv = np.array(grads_adv)
+grads_original = np.array(grads_original)
 sess_close()
 
-np.savez_compressed(os.path.join(args.output, "feature_vector_saliency.npz"), points = data_x_original, labels = labels, saliency = grads)
+np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_adv.npz"), points = data_x_adv, labels = labels, saliency = grads_adv)
+np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_original.npz"), points = data_x_original, labels = labels, saliency = grads_original)
