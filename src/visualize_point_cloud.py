@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 load_path = "point_clouds/pointnet/feature_iter_l2/feature_vector_saliency_original.npz"
-idx = 3
+idx = 4
 num_points_max = 1024
 triangle_mesh = False
 
@@ -44,8 +44,6 @@ elif load_path[-3:] == "npz":
                 triangles[i][j] = k
 
 print("Number of points: %d" % len(xs))
-norm = np.linalg.norm(np.stack([xs, ys, zs], axis = 1), axis = 1)
-print("Maximum L2 norm: %.3f" % np.max(norm))
 
 def scale_plot():
     plt.axis("scaled")

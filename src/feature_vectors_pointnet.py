@@ -94,7 +94,7 @@ np.add.at(per_class, labels, np.mean(diff, axis = 1))
 per_class[zero] = 0.0
 per_class = per_class / counts
 
-print("Average dimension per class:")
+print("Average dimension change per class:")
 print_per_class(per_class)
 
 avg_diff = np.mean(diff, axis = 0)
@@ -147,26 +147,36 @@ adversarial_utils.heatmap(pair_dist_pred_adv - pair_dist_pred_adv_original, os.p
 
 def top_k_freq(a, k):
     res = defaultdict(int)
-    max_idx = np.argsort(np.abs(a), axis = 1)[:, -k - 1:]
+    max_idx = np.argsort(np.abs(a), axis = 1)[:, -k:]
     for idx in max_idx:
         for i in idx:
             res[i] += 1
     return sorted(res.items(), key = lambda x: x[1], reverse = True)
 
-print("Dimensions that changed the most:")
+def top_k_freq_per_class(a, k):
+    res = [defaultdict(int) for _ in class_names]
+    max_idx = np.argsort(np.abs(a), axis = 1)[:, -k:]
+    for i in range(len(max_idx)):
+        for j in max_idx[i]:
+            res[labels[i]][j] += 1
+    return [sorted(dict.items(), key = lambda x: x[1], reverse = True) for dict in res]
+
+print("Dimensions that changed the most (dimension, count):")
 freq = top_k_freq(diff, 5)[:5]
 print(freq)
-idx = list(zip(*freq))[0]
-print(idx)
 
-grads_adv = []
-grads_original = []
-for i in idx:
-    grads_adv.append(feature_grad_fn(i, adv = True))
-    grads_original.append(feature_grad_fn(i, adv = False))
+freq_per_class = top_k_freq_per_class(diff, 5)
 
-grads_adv = np.array(grads_adv)
-grads_original = np.array(grads_original)
+print("Number of different dimensions that changed the most per class:")
+print_per_class([len(x) for x in freq_per_class])
+
+print("Dimensions that changed the most per class (dimension, count):")
+for i in range(len(class_names)):
+    curr_idx = freq_per_class[i][:5]
+    print("%d, %s: %s" % (i, class_names[i], curr_idx))
+
+grads_adv = feature_grad_fn(diff, k = 5, adv = True)
+grads_original = feature_grad_fn(diff, k = 5, adv = False)
 sess_close()
 
 np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_adv.npz"), points = data_x_adv, labels = labels, saliency = grads_adv)

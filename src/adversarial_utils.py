@@ -566,19 +566,23 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
     features_original = np.concatenate(features_original)
     features_adv = np.concatenate(features_adv)
 
-    def feature_grad_fn(idx, adv = False):
-        one_hot = tf.one_hot(tf.constant(idx)[tf.newaxis], tf.shape(features_op)[1])
+    def feature_grad_fn(diff, k, adv):
+        idx = tf.placeholder(tf.int32, [1])
+        one_hot = tf.one_hot(idx, tf.shape(features_op)[1])
         one_hot = tf.stop_gradient(one_hot)
         grad_op = tf.gradients(one_hot * features_op, x_pl)[0]
 
-        grads = []
+        grads = [[] for _ in range(k)]
+        max_idx = np.argsort(np.abs(diff), axis = 1)[:, -k:]
         for i in range(len(data_x_original)):
             feed_dict = {}
             feed_dict[x_pl] = [data_x_adv[i]] if adv else [data_x_original[i]]
             feed_dict.update(extra_feed_dict)
-            grads.append(sess.run(grad_op, feed_dict = feed_dict))
+            for j in range(k):
+                feed_dict[idx] = [max_idx[i][j]]
+                grads[j].append(sess.run(grad_op, feed_dict = feed_dict)[0])
         
-        return np.concatenate(grads)
+        return np.array(grads)
 
     print("Done!")
 
