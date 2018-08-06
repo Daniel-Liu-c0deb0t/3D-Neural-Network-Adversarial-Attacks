@@ -534,6 +534,10 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
     
     model_loss_fn(x_pl, None)
     features_op = tf.get_default_graph().get_tensor_by_name("feature_vector:0")
+    idx = tf.placeholder(tf.int32, [1])
+    mask = tf.one_hot(idx, tf.shape(features_op)[1])
+    mask = tf.stop_gradient(mask)
+    grad_op = tf.gradients(mask * features_op, x_pl)[0]
 
     data_x_original = np.array(data_x_original)
     data_x_adv = np.array(data_x_adv)
@@ -567,11 +571,6 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
     features_adv = np.concatenate(features_adv)
 
     def feature_grad_fn(diff, k, adv):
-        idx = tf.placeholder(tf.int32, [1])
-        one_hot = tf.one_hot(idx, tf.shape(features_op)[1])
-        one_hot = tf.stop_gradient(one_hot)
-        grad_op = tf.gradients(one_hot * features_op, x_pl)[0]
-
         grads = [[] for _ in range(k)]
         max_idx = np.argsort(np.abs(diff), axis = 1)[:, -k:]
         for i in range(len(data_x_original)):
