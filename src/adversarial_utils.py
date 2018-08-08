@@ -427,11 +427,11 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_count_eps_%s.png" % eps_str), class_names = class_names)
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_rate_eps_%s.png" % eps_str), total = heatmap_totals, class_names = class_names, annotate = False)
 
-            total_succeeded /= len(class_names)
+            total_succeeded /= float(len(class_names))
 
             with open(os.path.join(out_dir, "targeted_stats_eps_%s.csv" % eps_str), "w") as f:
                 percent = 0 if correct == 0 else float(total_succeeded) / correct
-                f.write("Total %d, Correct %d, Average Attacks Succeeded Per Target Class %d, Average Succeeded / Correct %.3f\n" % (total, correct, total_succeeded, percent))
+                f.write("Total %d, Correct %d, Average Attacks Succeeded For All Target Classes %d, Average Succeeded / Correct %.3f\n" % (total, correct, total_succeeded, percent))
             
             succeeded_x_original.append(curr_succeeded_x_original)
             succeeded_target.append(curr_succeeded_target)
@@ -579,7 +579,9 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
             feed_dict.update(extra_feed_dict)
             for j in range(k):
                 feed_dict[idx] = [max_idx[i][j]]
-                grads[j].append(sess.run(grad_op, feed_dict = feed_dict)[0])
+                res_grads = sess.run(grad_op, feed_dict = feed_dict)
+                for grad in res_grads:
+                    grads[j].append(grad)
         
         return np.array(grads)
 

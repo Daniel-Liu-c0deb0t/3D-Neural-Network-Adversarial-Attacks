@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 load_path = "point_clouds/pointnet/feature_iter_l2/feature_vector_saliency_original.npz"
-idx = 6
+idx = 7
 num_points_max = 1024
 triangle_mesh = False
 

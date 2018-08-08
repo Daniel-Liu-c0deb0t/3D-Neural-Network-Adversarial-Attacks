@@ -43,6 +43,8 @@ def model_loss_fn(x, t):
 
 features_original, features_adv, feature_grad_fn, sess_close = adversarial_utils.get_feature_vectors(args.checkpoint, x_pl, model_loss_fn, data_x_original, data_x_adv, class_names, extra_feed_dict = {is_training: False})
 
+print(features_original.shape)
+
 def print_per_class(per_class):
     for i, val in enumerate(per_class):
         print("%d, %s: %.3f" % (i, class_names[i], val))
@@ -95,6 +97,18 @@ per_class[zero] = 0.0
 per_class = per_class / counts
 
 print("Average dimension change per class:")
+print_per_class(per_class)
+
+print("Average absolute dimension change %.3f" % np.mean(np.abs(diff)))
+print("Avg min absolute dimension change %.3f" % np.min(np.mean(np.abs(diff), axis = 1)))
+print("Avg max absolute dimension change %.3f" % np.max(np.mean(np.abs(diff), axis = 1)))
+
+per_class = np.zeros(len(class_names))
+np.add.at(per_class, labels, np.mean(np.abs(diff), axis = 1))
+per_class[zero] = 0.0
+per_class = per_class / counts
+
+print("Average absolute dimension change per class:")
 print_per_class(per_class)
 
 avg_diff = np.mean(diff, axis = 0)

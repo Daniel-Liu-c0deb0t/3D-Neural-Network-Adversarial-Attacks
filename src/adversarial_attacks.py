@@ -38,7 +38,7 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
         if clip_norm is not None:
             perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
         perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
-        perturb = perturb * tf.to_float(perturb_norm >= min_norm)[..., tf.newaxis]
+        perturb = perturb * tf.to_float(perturb_norm >= min_norm)
 
         if targeted:
             x_adv = x_adv - perturb
@@ -103,7 +103,7 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
         if clip_norm is not None:
             perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
         perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
-        perturb = perturb * tf.to_float(perturb_norm >= min_norm)[..., tf.newaxis]
+        perturb = perturb * tf.to_float(perturb_norm >= min_norm)
 
         if targeted:
             x_adv = x_adv - perturb
