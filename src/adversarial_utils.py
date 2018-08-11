@@ -631,3 +631,45 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
     print("Done!")
 
     return features_original, features_adv, feature_grad_fn, lambda: sess.close()
+
+def saliency(model_path, x_pl, model_loss_fn, data_x, class_names, t_pl = None, data_t = None, saliency_class = None, extra_feed_dict = None):
+    if extra_feed_dict is None:
+        extra_feed_dict = {}
+    
+    if saliency_class is None: # loss wrt input
+        _, loss_op = model_loss_fn(x_pl, t_pl)
+        grad_op = tf.gradients(loss_op, x_pl)[0]
+    else: # saliency_class wrt input
+        logits_op, _ = model_loss_fn(x_pl, None)
+        mask = tf.one_hot(saliency_class, tf.shape(logits_op)[1])
+        mask = tf.stop_gradient(mask)
+        grad_op = tf.gradients(mask * logits_op, x_pl)[0]
+
+    data_x = np.array(data_x)
+    if data_t is not None:
+        data_t = np.array(data_t)
+
+    saver = tf.train.Saver()
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config = config)
+    saver.restore(sess, model_path)
+    print("Model restored!")
+
+    saliency = []
+    for i in range(len(data_x)):
+        feed_dict = {
+            x_pl: [data_x[i]]
+        }
+        if data_t is not None:
+            feed_dict[t_pl] = [data_t[i]]
+        feed_dict.update(extra_feed_dict)
+        grad = sess.run(grad_op, feed_dict = feed_dict)
+        saliency.append(grad)
+    
+    saliency = np.concatenate(saliency)
+
+    print("Done!")
+
+    return saliency
