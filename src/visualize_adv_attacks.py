@@ -4,6 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import visualization_utils
 
 class_str = "desk"
+camera = (45, 0)
 
 pointnet_paths = [
     "point_clouds/pointnet/untargeted_fast_l2/succeeded_point_clouds_eps_1_0.npz",
@@ -58,7 +59,7 @@ max = np.max(pointnet_object[0]["x_original"])
 plt.gca().set_xlim(min, max)
 plt.gca().set_ylim(min, max)
 plt.gca().set_zlim(min, max)
-plt.gca().view_init(0, 0)
+plt.gca().view_init(*camera)
 plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
 plt.savefig("point_clouds/images/%s/adversarial_image_original.png" % class_str)
 #plt.show()
@@ -76,7 +77,7 @@ for i, (p1, p2) in enumerate(zip(pointnet_object, pointnet2_object)):
     plt.gca().set_xlim(min, max)
     plt.gca().set_ylim(min, max)
     plt.gca().set_zlim(min, max)
-    plt.gca().view_init(0, 0)
+    plt.gca().view_init(*camera)
 
     plt.subplot(122, projection = "3d")
     plt.title("PointNet++")
@@ -87,7 +88,7 @@ for i, (p1, p2) in enumerate(zip(pointnet_object, pointnet2_object)):
     plt.gca().set_xlim(min, max)
     plt.gca().set_ylim(min, max)
     plt.gca().set_zlim(min, max)
-    plt.gca().view_init(0, 0)
+    plt.gca().view_init(*camera)
     
     plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
 

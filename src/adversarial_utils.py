@@ -86,6 +86,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             raise
     
     logits_op, loss_op = model_loss_fn(x_pl, t_pl)
+    probs_op = tf.nn.softmax(logits_op)
 
     data_x = np.array(data_x)
     data_t = np.array(data_t)
@@ -134,21 +135,24 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         logits = []
         losses = []
         preds = []
+        probs = []
         for i in range(total):
             feed_dict = {
                 x_pl: [data_x[i]],
                 t_pl: [data_t[i]]
             }
             feed_dict.update(extra_feed_dict)
-            curr_logit, curr_loss = sess.run([logits_op, loss_op], feed_dict = feed_dict)
+            curr_logit, curr_loss, curr_prob = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
             curr_pred = np.argmax(curr_logit, axis = 1)
             logits.append(curr_logit)
             losses.append(curr_loss)
             preds.append(curr_pred)
+            probs.append(curr_prob)
         
         logits = np.concatenate(logits)
         losses = np.array(losses)
         preds = np.concatenate(preds)
+        probs = np.concatenate(probs)
 
         if one_hot:
             sparse_t = np.argmax(data_t, axis = 1)
@@ -159,6 +163,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         logits = logits[correct_idx][:num_objects]
         preds = preds[correct_idx][:num_objects]
         losses = losses[correct_idx][:num_objects]
+        probs = probs[correct_idx][:num_objects]
         data_x = data_x[correct_idx][:num_objects]
         data_t = data_t[correct_idx][:num_objects]
         if data_f is not None:
@@ -194,21 +199,24 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             logits_adv = []
             losses_adv = []
             preds_adv = []
+            probs_adv = []
             for i in range(correct):
                 feed_dict = {
                     x_pl: [x_adv[i]],
                     t_pl: [data_t[i]]
                 }
                 feed_dict.update(extra_feed_dict)
-                curr_logit_adv, curr_loss_adv = sess.run([logits_op, loss_op], feed_dict = feed_dict)
+                curr_logit_adv, curr_loss_adv, curr_prob_adv = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
                 curr_pred_adv = np.argmax(curr_logit_adv, axis = 1)
                 logits_adv.append(curr_logit_adv)
                 losses_adv.append(curr_loss_adv)
                 preds_adv.append(curr_pred_adv)
+                probs_adv.append(curr_prob_adv)
             
             logits_adv = np.concatenate(logits_adv)
             losses_adv = np.array(losses_adv)
             preds_adv = np.concatenate(preds_adv)
+            probs_adv = np.concatenate(probs_adv)
 
             succeeded_idx = preds_adv != preds
             succeeded = np.sum(succeeded_idx)
@@ -230,6 +238,9 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             np.add.at(class_succeeded, preds[succeeded_idx], 1)
 
             with open(os.path.join(out_dir, "class_stats_eps_%s.csv" % eps_str), "w") as f:
+                f.write("Average confidence for correct predictions: %.3f" % np.mean(probs[range(correct), preds]))
+                f.write("Average confidence for successful adversarial predictions: %.3f" % np.mean(probs_adv[succeeded_idx][range(succeeded), preds_adv[succeeded_idx]]))
+                f.write("Average confidence for unsuccessful adversarial predictions: %.3f" % np.mean(probs_adv[~succeeded_idx][range(correct - succeeded), preds_adv[~succeeded_idx]]))
                 f.write("Index, Original Class, Total, Correct, Attacks Succeeded, Succeeded / Correct\n")
 
                 for i in range(len(class_names)):
@@ -261,6 +272,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             raise
     
     logits_op, loss_op = model_loss_fn(x_pl, t_pl)
+    probs_op = tf.nn.softmax(logits_op)
 
     data_x = np.array(data_x)
     data_t = np.array(data_t)
@@ -312,21 +324,24 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         logits = []
         losses = []
         preds = []
+        probs = []
         for i in range(total):
             feed_dict = {
                 x_pl: [data_x[i]],
                 t_pl: [data_t[i]]
             }
             feed_dict.update(extra_feed_dict)
-            curr_logit, curr_loss = sess.run([logits_op, loss_op], feed_dict = feed_dict)
+            curr_logit, curr_loss, curr_prob = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
             curr_pred = np.argmax(curr_logit, axis = 1)
             logits.append(curr_logit)
             losses.append(curr_loss)
             preds.append(curr_pred)
+            probs.append(curr_prob)
         
         logits = np.concatenate(logits)
         losses = np.array(losses)
         preds = np.concatenate(preds)
+        probs = np.concatenate(probs)
 
         if one_hot:
             sparse_t = np.argmax(data_t, axis = 1)
@@ -337,6 +352,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         logits = logits[correct_idx][:num_objects]
         preds = preds[correct_idx][:num_objects]
         losses = losses[correct_idx][:num_objects]
+        probs = probs[correct_idx][:num_objects]
         data_x = data_x[correct_idx][:num_objects]
         data_t = data_t[correct_idx][:num_objects]
         if data_f is not None:
@@ -363,6 +379,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 curr_succeeded_faces = []
             success_counts = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
             total_succeeded = 0
+            total_successful_confidence = 0
+            total_unsuccessful_confidence = 0
             eps_str = str(curr_eps).replace(".", "_")
 
             for curr_target in range(len(class_names)):
@@ -392,21 +410,24 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 logits_adv = []
                 losses_adv = []
                 preds_adv = []
+                probs_adv = []
                 for i in range(correct):
                     feed_dict = {
                         x_pl: [x_adv[i]],
                         t_pl: [data_t[i]]
                     }
                     feed_dict.update(extra_feed_dict)
-                    curr_logit_adv, curr_loss_adv = sess.run([logits_op, loss_op], feed_dict = feed_dict)
+                    curr_logit_adv, curr_loss_adv, curr_prob_adv = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
                     curr_pred_adv = np.argmax(curr_logit_adv, axis = 1)
                     logits_adv.append(curr_logit_adv)
                     losses_adv.append(curr_loss_adv)
                     preds_adv.append(curr_pred_adv)
+                    probs_adv.append(curr_prob_adv)
                 
                 logits_adv = np.concatenate(logits_adv)
                 losses_adv = np.array(losses_adv)
                 preds_adv = np.concatenate(preds_adv)
+                probs_adv = np.concatenate(probs_adv)
 
                 succeeded_idx = (preds != curr_target) & (preds_adv == curr_target)
                 succeeded = np.sum(succeeded_idx)
@@ -417,6 +438,9 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 if data_f is not None:
                     curr_succeeded_faces.append(data_f[succeeded_idx])
                 
+                total_successful_confidence += np.mean(probs_adv[succeeded_idx][range(succeeded), preds_adv[succeeded_idx]])
+                total_unsuccessful_confidence += np.mean(probs_adv[~succeeded_idx][range(correct - succeeded), preds_adv[~succeeded_idx]])
+
                 np.add.at(success_counts, [preds[succeeded_idx], preds_adv[succeeded_idx]], 1)
 
                 if data_f is None:
@@ -428,8 +452,14 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_rate_eps_%s.png" % eps_str), total = heatmap_totals, class_names = class_names, annotate = False)
 
             total_succeeded /= float(len(class_names))
+            total_successful_confidence /= float(len(class_names))
+            total_unsuccessful_confidence /= float(len(class_names))
 
             with open(os.path.join(out_dir, "targeted_stats_eps_%s.csv" % eps_str), "w") as f:
+                f.write("Average confidence for correct predictions: %.3f" % np.mean(probs[range(correct), preds]))
+                f.write("Average confidence for successful adversarial predictions: %.3f" % total_successful_confidence)
+                f.write("Average confidence for unsuccessful adversarial predictions: %.3f" % total_unsuccessful_confidence)
+                
                 percent = 0 if correct == 0 else float(total_succeeded) / correct
                 f.write("Total %d, Correct %d, Average Attacks Succeeded For All Target Classes %d, Average Succeeded / Correct %.3f\n" % (total, correct, total_succeeded, percent))
             
@@ -456,6 +486,7 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
             raise
     
     logits_op, loss_op = model_loss_fn(x_pl, t_pl)
+    probs_op = tf.nn.softmax(logits_op)
 
     data_x = np.array(data_x)
     data_t = np.array(data_t)
@@ -473,21 +504,24 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
         logits = []
         losses = []
         preds = []
+        probs = []
         for i in range(len(data_x)):
             feed_dict = {
                 x_pl: [data_x[i]],
                 t_pl: [data_t[i]]
             }
             feed_dict.update(extra_feed_dict)
-            curr_logit, curr_loss = sess.run([logits_op, loss_op], feed_dict = feed_dict)
+            curr_logit, curr_loss, curr_prob = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
             curr_pred = np.argmax(curr_logit, axis = 1)
             logits.append(curr_logit)
             losses.append(curr_loss)
             preds.append(curr_pred)
+            probs.append(curr_prob)
         
         logits = np.concatenate(logits)
         losses = np.array(losses)
         preds = np.concatenate(preds)
+        probs = np.concatenate(probs)
 
         if one_hot:
             sparse_t = np.argmax(data_t, axis = 1)
@@ -497,9 +531,16 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
             sparse_t = data_t
             sparse_p = data_p
         
-        correct = np.sum(preds == sparse_t)
+        idx = preds == sparse_t
+        correct = np.sum(idx)
         if data_p is not None:
-            match = np.sum(preds == sparse_p)
+            idx = preds == sparse_p
+            match = np.sum(idx)
+            avg_correct_confidence = np.mean(probs[idx][range(match), preds[idx]])
+            avg_wrong_confidence = np.mean(probs[~idx][range(len(data_x) - match), preds[~idx]])
+        else:
+            avg_correct_confidence = np.mean(probs[idx][range(correct), preds[idx]])
+            avg_wrong_confidence = np.mean(probs[~idx][range(len(data_x) - correct), preds[~idx]])
 
         target_vs_preds = np.zeros(shape = (len(class_names), len(class_names)), dtype = int)
         np.add.at(target_vs_preds, [sparse_t, preds], 1)
@@ -525,6 +566,8 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
             print("Succeeded / Total: %.3f" % (float(len(data_x) - correct) / len(data_x)))
             print("Transfers With Matching Predictions: %d" % match)
             print("Matching / Succeeded: %.3f" % (float(match) / (len(data_x) - correct)))
+        print("Average confidence of correct or matching predictions: %.3f" % avg_correct_confidence)
+        print("Average confidence of wrong predictions: %.3f" % avg_wrong_confidence)
 
     print("Done!")
 
@@ -583,7 +626,7 @@ def get_feature_vectors(model_path, x_pl, model_loss_fn, data_x_original, data_x
                 for grad in res_grads:
                     grads[j].append(grad)
         
-        return np.array(grads)
+        return np.array(grads), max_idx.T
 
     print("Done!")
 

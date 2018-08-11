@@ -67,6 +67,20 @@ per_class = per_class / counts
 print("Average L2 norms of feature vector changes per class:")
 print_per_class(per_class)
 
+norm_diff = np.linalg.norm(features_adv, axis = 1) - np.linalg.norm(features_original, axis = 1)
+
+print("Average difference between L2 norms: %.3f" % np.mean(norm_diff))
+print("Min difference between L2 norms: %.3f" % np.min(norm_diff))
+print("Max difference between L2 norms: %.3f" % np.max(norm_diff))
+
+per_class = np.zeros(len(class_names))
+np.add.at(per_class, labels, norm_diff)
+per_class[zero] = 0.0
+per_class = per_class / counts
+
+print("Average difference between L2 norms per class:")
+print_per_class(per_class)
+
 percent_pos = np.sum(diff > 0.0, axis = 1) / float(diff.shape[1])
 percent_neg = np.sum(diff < 0.0, axis = 1) / float(diff.shape[1])
 
@@ -189,9 +203,9 @@ for i in range(len(class_names)):
     curr_idx = freq_per_class[i][:5]
     print("%d, %s: %s" % (i, class_names[i], curr_idx))
 
-grads_adv = feature_grad_fn(diff, k = 5, adv = True)
-grads_original = feature_grad_fn(diff, k = 5, adv = False)
+grads_adv, top_adv = feature_grad_fn(diff, k = 5, adv = True)
+grads_original, top_original = feature_grad_fn(diff, k = 5, adv = False)
 sess_close()
 
-np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_adv.npz"), points = data_x_adv, labels = labels, saliency = grads_adv)
-np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_original.npz"), points = data_x_original, labels = labels, saliency = grads_original)
+np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_adv.npz"), points = data_x_adv, labels = labels, saliency = grads_adv, top_k = top_adv)
+np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_original.npz"), points = data_x_original, labels = labels, saliency = grads_original, top_k = top_original)
