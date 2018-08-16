@@ -21,8 +21,8 @@ parser.add_argument("--num-points", type = int, default = 1024, help = "Number o
 parser.add_argument("--num-objects", type = int, default = 1000000000, help = "Number of correctly classified objects to use. Specify a very large number to use all correctly classified objects.")
 parser.add_argument("--targeted", action = "store_true", help = "Run targeted attack.")
 parser.add_argument("--iter", type = int, default = 10, help = "Number of iterations for iterative gradient sign.")
-parser.add_argument("--eps", nargs = "+", type = float, default = [0.1, 0.5], help = "List of epsilon values for iterative gradient sign.")
-parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency"], default = "iterative", help = "Which algorithm to use when perturbing points.")
+parser.add_argument("--eps", nargs = "+", type = float, default = [1], help = "List of epsilon values for iterative gradient sign.")
+parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency", "sort"], default = "iterative", help = "Which algorithm to use when perturbing points.")
 parser.add_argument("--projection", action = "store_true", help = "Project the gradient vectors onto each point's corresponding triangle.")
 parser.add_argument("--restrict", action = "store_true", help = "Restrict the gradient vectors to be inside each point's corresponding triangle.")
 parser.add_argument("--norm", default = "inf", help = "Norm used for gradient sign.")
@@ -66,7 +66,7 @@ is_training = tf.placeholder(tf.bool, shape = [])
 
 def model_loss_fn(x, t):
     with tf.variable_scope(tf.get_variable_scope(), reuse = tf.AUTO_REUSE):
-        y, end_points = model.get_model(x, is_training)
+        y, end_points = model.get_model(x, is_training, num_classes = len(class_names))
     if t is None:
         loss = None
     else:

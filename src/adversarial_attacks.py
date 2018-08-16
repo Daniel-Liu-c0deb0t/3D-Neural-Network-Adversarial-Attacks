@@ -1,5 +1,46 @@
 import tensorflow as tf
 
+def sort_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10):
+    targeted = t_pl is not None
+
+    # use the prediction class to prevent label leaking
+    if not targeted:
+        logits, _ = model_loss_fn(x_pl, None)
+        t_pl = tf.argmax(logits, axis = 1)
+        if one_hot:
+            t_pl = tf.one_hot(t_pl, tf.shape(logits)[1])
+        t_pl = tf.stop_gradient(t_pl)
+
+    if faces is not None:
+        normal = tf.cross(faces[:, :, 1] - faces[:, :, 0], faces[:, :, 2] - faces[:, :, 1])
+        normal = normal / tf.linalg.norm(normal, axis = 2, keep_dims = True)
+
+    x_adv = x_pl
+    var = tf.Variable(x_adv, trainable = False, collections = ["not_in_checkpoint"])
+    with tf.control_dependencies([tf.variables_initializer([var])]):
+        for _ in range(iter):
+            _, loss = model_loss_fn(x_adv, t_pl)
+            grad = tf.reduce_mean(tf.gradients(loss, x_adv)[0], axis = 2)
+            grad_sorted = tf.contrib.framework.argsort(grad, axis = 1)
+            
+            idx = tf.tile(tf.range(tf.shape(x_adv)[0])[:, tf.newaxis], multiples = [1, iter])
+            lower = grad_sorted[:, :iter]
+            higher = grad_sorted[:, -iter:][:, ::-1]
+            lower = tf.reshape(tf.stack([idx, lower], axis = 2), shape = [-1, 2])
+            higher = tf.reshape(tf.stack([idx, higher], axis = 2), shape = [-1, 2])
+
+            if targeted:
+                # replace higher with lower
+                x_adv = tf.scatter_nd_update(var, higher, tf.gather_nd(x_adv, lower))
+            else:
+                # replace lower with higher
+                x_adv = tf.scatter_nd_update(var, lower, tf.gather_nd(x_adv, higher))
+            
+            x_adv = tf.assign(var, x_adv)
+            x_adv = tf.stop_gradient(x_adv)
+    
+    return x_adv
+
 def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, ord = "inf", clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0):
     targeted = t_pl is not None
     alpha = eps / float(iter)

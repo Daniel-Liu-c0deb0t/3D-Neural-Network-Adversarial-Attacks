@@ -2,12 +2,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-load_path = "point_clouds/saliency.npz"
-idx = 10
+load_path = "point_clouds/saliency_adv.npz"
+idx = 0
+saliency_norm = False
 num_points_max = 1024
 triangle_mesh = False
 
 saliency = None
+
+class_names = [line.rstrip() for line in open("shape_names.txt")]
 
 if load_path[-3:] == "npy":
     xs, ys, zs = np.load(load_path)[:num_points_max].T
@@ -36,7 +39,7 @@ elif load_path[-3:] == "npz":
         else:
             dimension = None
 
-    print("Label: %s" % labels[idx])
+    print("Label: %s" % class_names[labels[idx]])
 
     xs, ys, zs = points[idx][:num_points_max].T
     
@@ -68,8 +71,12 @@ if saliency is None:
     scale_plot()
 else:
     plt.figure(figsize = (12, 4))
-    saliency = np.linalg.norm(saliency, axis = 2)
-    saliency = np.clip(saliency / (np.mean(saliency) * 2.0), 0.0, 1.0)
+    if saliency_norm:
+        saliency = np.linalg.norm(saliency, axis = 2)
+        saliency = np.clip(saliency / (np.mean(saliency) * 2.0), 0.0, 1.0)
+    else:
+        saliency = np.mean(saliency, axis = 2)
+        saliency = np.clip(saliency / (np.mean(np.abs(saliency)) * 2.0), -1.0, 1.0) / 2.0 + 0.5
     for i in range(len(saliency)):
         plt.subplot(1, len(saliency), i + 1, projection = "3d")
         if dimension is not None:

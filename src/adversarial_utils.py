@@ -112,6 +112,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
     elif mode == "saliency":
         x_adv_op = adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+    elif mode == "sort":
+        x_adv_op = adversarial_attacks.sort_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter)
     else:
         raise ValueError("Only iterative, momentum, and saliency modes are supported!")
     
@@ -238,9 +240,9 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             np.add.at(class_succeeded, preds[succeeded_idx], 1)
 
             with open(os.path.join(out_dir, "class_stats_eps_%s.csv" % eps_str), "w") as f:
-                f.write("Average confidence for correct predictions: %.3f" % np.mean(probs[range(correct), preds]))
-                f.write("Average confidence for successful adversarial predictions: %.3f" % np.mean(probs_adv[succeeded_idx][range(succeeded), preds_adv[succeeded_idx]]))
-                f.write("Average confidence for unsuccessful adversarial predictions: %.3f" % np.mean(probs_adv[~succeeded_idx][range(correct - succeeded), preds_adv[~succeeded_idx]]))
+                f.write("Average confidence for correct predictions: %.3f\n" % np.mean(probs[range(correct), preds]))
+                f.write("Average confidence for successful adversarial predictions: %.3f\n" % np.mean(probs_adv[succeeded_idx][range(succeeded), preds_adv[succeeded_idx]]))
+                f.write("Average confidence for unsuccessful adversarial predictions: %.3f\n" % np.mean(probs_adv[~succeeded_idx][range(correct - succeeded), preds_adv[~succeeded_idx]]))
                 f.write("Index, Original Class, Total, Correct, Attacks Succeeded, Succeeded / Correct\n")
 
                 for i in range(len(class_names)):
@@ -456,9 +458,9 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
             total_unsuccessful_confidence /= float(len(class_names))
 
             with open(os.path.join(out_dir, "targeted_stats_eps_%s.csv" % eps_str), "w") as f:
-                f.write("Average confidence for correct predictions: %.3f" % np.mean(probs[range(correct), preds]))
-                f.write("Average confidence for successful adversarial predictions: %.3f" % total_successful_confidence)
-                f.write("Average confidence for unsuccessful adversarial predictions: %.3f" % total_unsuccessful_confidence)
+                f.write("Average confidence for correct predictions: %.3f\n" % np.mean(probs[range(correct), preds]))
+                f.write("Average confidence for successful adversarial predictions: %.3f\n" % total_successful_confidence)
+                f.write("Average confidence for unsuccessful adversarial predictions: %.3f\n" % total_unsuccessful_confidence)
                 
                 percent = 0 if correct == 0 else float(total_succeeded) / correct
                 f.write("Total %d, Correct %d, Average Attacks Succeeded For All Target Classes %d, Average Succeeded / Correct %.3f\n" % (total, correct, total_succeeded, percent))
@@ -566,8 +568,8 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
             print("Succeeded / Total: %.3f" % (float(len(data_x) - correct) / len(data_x)))
             print("Transfers With Matching Predictions: %d" % match)
             print("Matching / Succeeded: %.3f" % (float(match) / (len(data_x) - correct)))
-        print("Average confidence of correct or matching predictions: %.3f" % avg_correct_confidence)
-        print("Average confidence of wrong predictions: %.3f" % avg_wrong_confidence)
+        print("Average confidence of correct or matching predictions: %.3f\n" % avg_correct_confidence)
+        print("Average confidence of wrong predictions: %.3f\n" % avg_wrong_confidence)
 
     print("Done!")
 
