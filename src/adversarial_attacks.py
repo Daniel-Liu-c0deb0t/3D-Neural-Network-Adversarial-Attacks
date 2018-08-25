@@ -21,20 +21,23 @@ def sort_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter
         for _ in range(iter):
             _, loss = model_loss_fn(x_adv, t_pl)
             grad = tf.reduce_mean(tf.gradients(loss, x_adv)[0], axis = 2)
-            grad_sorted = tf.contrib.framework.argsort(grad, axis = 1)
+            #grad_sorted = tf.contrib.framework.argsort(grad, axis = 1)
             
-            idx = tf.tile(tf.range(tf.shape(x_adv)[0])[:, tf.newaxis], multiples = [1, iter])
-            lower = grad_sorted[:, :iter]
-            higher = grad_sorted[:, -iter:][:, ::-1]
+            #idx = tf.tile(tf.range(tf.shape(x_adv)[0])[:, tf.newaxis], multiples = [1, iter])
+            #lower = grad_sorted[:, :iter]
+            #higher = grad_sorted[:, -iter:][:, ::-1]
+            idx = tf.range(tf.shape(x_adv)[0])[:, tf.newaxis]
+            lower = tf.to_int32(tf.argmin(grad, axis = 1)[:, tf.newaxis])
+            higher = tf.to_int32(tf.argmax(grad, axis = 1)[:, tf.newaxis])
             lower = tf.reshape(tf.stack([idx, lower], axis = 2), shape = [-1, 2])
             higher = tf.reshape(tf.stack([idx, higher], axis = 2), shape = [-1, 2])
 
             if targeted:
                 # replace higher with lower
-                x_adv = tf.scatter_nd_update(var, higher, tf.gather_nd(x_adv, lower))
+                x_adv = tf.scatter_nd_update(var, higher, tf.gather_nd(x_adv, lower) + 1e-3)
             else:
                 # replace lower with higher
-                x_adv = tf.scatter_nd_update(var, lower, tf.gather_nd(x_adv, higher))
+                x_adv = tf.scatter_nd_update(var, lower, tf.gather_nd(x_adv, higher) + 1e-3)
             
             x_adv = tf.assign(var, x_adv)
             x_adv = tf.stop_gradient(x_adv)

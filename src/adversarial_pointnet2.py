@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import scipy
 import adversarial_utils
+import adversarial_defenses
 import os
 import sys
 import argparse
@@ -23,6 +24,7 @@ parser.add_argument("--targeted", action = "store_true", help = "Run targeted at
 parser.add_argument("--iter", type = int, default = 10, help = "Number of iterations for iterative gradient sign.")
 parser.add_argument("--eps", nargs = "+", type = float, default = [1], help = "List of epsilon values for iterative gradient sign.")
 parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency", "sort"], default = "iterative", help = "Which algorithm to use when perturbing points.")
+parser.add_argument("--defense", choices = ["none", "outliers"], default = "none", help = "Which algorithm to use for postprocessing points as a defense.")
 parser.add_argument("--projection", action = "store_true", help = "Project the gradient vectors onto each point's corresponding triangle.")
 parser.add_argument("--restrict", action = "store_true", help = "Restrict the gradient vectors to be inside each point's corresponding triangle.")
 parser.add_argument("--norm", default = "inf", help = "Norm used for gradient sign.")
@@ -60,6 +62,8 @@ else:
     data_f = None
     data_t = np.concatenate(data_t)
 
+defense_dict = {"none": None, "outliers": adversarial_defenses.remove_outliers_fn}
+
 x_pl, t_pl = model.placeholder_inputs(1, args.num_points)
 
 is_training = tf.placeholder(tf.bool, shape = [])
@@ -74,7 +78,7 @@ def model_loss_fn(x, t):
     return y, loss
 
 if args.targeted:
-    res = adversarial_utils.targeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, mode = args.mode, one_hot = False, clip_norm = args.clip_norm, min_norm = args.min_norm, extra_feed_dict = {is_training: False})
+    res = adversarial_utils.targeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, mode = args.mode, one_hot = False, clip_norm = args.clip_norm, min_norm = args.min_norm, postprocess_fn = defense_dict[args.defense], extra_feed_dict = {is_training: False})
     if data_f is None:
         x_original, target, x_adv = res
     else:
@@ -96,7 +100,7 @@ if args.targeted:
                 img = pc_util.point_cloud_three_views(x_adv[eps_idx][i][j])
                 scipy.misc.imsave(img_file, img)
 else:
-    res = adversarial_utils.untargeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, mode = args.mode, one_hot = False, clip_norm = args.clip_norm, min_norm = args.min_norm, extra_feed_dict = {is_training: False})
+    res = adversarial_utils.untargeted_attack(args.checkpoint, args.output, x_pl, t_pl, model_loss_fn, data_x, data_t, args.num_objects, class_names, data_f = data_f, restrict = args.restrict, iter = args.iter, eps_list = args.eps, norm = args.norm, mode = args.mode, one_hot = False, clip_norm = args.clip_norm, min_norm = args.min_norm, postprocess_fn = defense_dict[args.defense], extra_feed_dict = {is_training: False})
     if data_f is None:
         x_original, target, x_adv, pred_adv = res
     else:

@@ -66,7 +66,7 @@ def heatmap(data, path, x_label, y_label, class_names = None, percentages = True
         vmax = None
         fmt = "d"
     
-    fig_size = len(class_names) // 10 * 7
+    fig_size = len(class_names) // 10 * 6 + 3
     plt.figure(figsize = (fig_size, fig_size))
     ax = sns.heatmap(data.T, annot = annotate, xticklabels = class_names, yticklabels = class_names, vmin = vmin, vmax = vmax, fmt = fmt, linewidths = 2)
     ax.invert_yaxis()
@@ -76,7 +76,9 @@ def heatmap(data, path, x_label, y_label, class_names = None, percentages = True
     plt.savefig(path)
     plt.close()
 
-def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, num_objects, class_names, iter, eps_list, norm = "inf", data_f = None, restrict = False, one_hot = True, mode = "iterative", momentum = 1.0, clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0, extra_feed_dict = None):
+def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, num_objects, class_names, iter, eps_list, norm = "inf", data_f = None, restrict = False, one_hot = True, mode = "iterative", momentum = 1.0, clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0, postprocess_fn = None, extra_feed_dict = None):
+    if postprocess_fn is None:
+        postprocess_fn = lambda x: x
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -107,15 +109,15 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
 
     if mode == "iterative":
-        x_adv_op = adversarial_attacks.iter_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
+        x_adv_op = postprocess_fn(adversarial_attacks.iter_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm))
     elif mode == "momentum":
-        x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
+        x_adv_op = postprocess_fn(adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm))
     elif mode == "saliency":
-        x_adv_op = adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = postprocess_fn(adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max))
     elif mode == "sort":
-        x_adv_op = adversarial_attacks.sort_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter)
+        x_adv_op = postprocess_fn(adversarial_attacks.sort_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter))
     else:
-        raise ValueError("Only iterative, momentum, and saliency modes are supported!")
+        raise ValueError("Only iterative, momentum, saliency, and sort modes are supported!")
     
     saver = tf.train.Saver()
 
@@ -264,7 +266,9 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
     else:
         return succeeded_x_original, succeeded_target, succeeded_x_adv, succeeded_pred_adv, succeeded_faces
 
-def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, num_objects, class_names, iter, eps_list, norm = "inf", data_f = None, restrict = False, one_hot = True, mode = "iterative", momentum = 1.0, clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0, extra_feed_dict = None):
+def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, num_objects, class_names, iter, eps_list, norm = "inf", data_f = None, restrict = False, one_hot = True, mode = "iterative", momentum = 1.0, clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0, postprocess_fn = None, extra_feed_dict = None):
+    if postprocess_fn is None:
+        postprocess_fn = {}
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -299,11 +303,11 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         faces = tf.placeholder(tf.float32, shape = [1, None, 3, 3])
     
     if mode == "iterative":
-        x_adv_op = adversarial_attacks.iter_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
+        x_adv_op = postprocess_fn(adversarial_attacks.iter_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm))
     elif mode == "momentum":
-        x_adv_op = adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm)
+        x_adv_op = postprocess_fn(adversarial_attacks.momentum_grad_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, ord = norm, momentum = momentum, restrict = restrict, clip_min = clip_min, clip_max = clip_max, clip_norm = clip_norm, min_norm = min_norm))
     elif mode == "saliency":
-        x_adv_op = adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max)
+        x_adv_op = postprocess_fn(adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = target, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max))
     else:
         raise ValueError("Only iterative, momentum, and saliency modes are supported!")
     

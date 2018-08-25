@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-load_path = "point_clouds/saliency_adv.npz"
+load_path = "point_clouds/point_clouds_uneven.npz"
 idx = 0
 saliency_norm = False
 num_points_max = 1024
