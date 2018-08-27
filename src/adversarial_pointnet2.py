@@ -23,7 +23,7 @@ parser.add_argument("--num-objects", type = int, default = 1000000000, help = "N
 parser.add_argument("--targeted", action = "store_true", help = "Run targeted attack.")
 parser.add_argument("--iter", type = int, default = 10, help = "Number of iterations for iterative gradient sign.")
 parser.add_argument("--eps", nargs = "+", type = float, default = [1], help = "List of epsilon values for iterative gradient sign.")
-parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency", "sort"], default = "iterative", help = "Which algorithm to use when perturbing points.")
+parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency", "sort", "view"], default = "iterative", help = "Which algorithm to use when perturbing points.")
 parser.add_argument("--defense", choices = ["none", "outliers"], default = "none", help = "Which algorithm to use for postprocessing points as a defense.")
 parser.add_argument("--projection", action = "store_true", help = "Project the gradient vectors onto each point's corresponding triangle.")
 parser.add_argument("--restrict", action = "store_true", help = "Restrict the gradient vectors to be inside each point's corresponding triangle.")

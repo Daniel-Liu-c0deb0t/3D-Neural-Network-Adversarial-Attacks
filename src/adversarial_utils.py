@@ -116,8 +116,10 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         x_adv_op = postprocess_fn(adversarial_attacks.jacobian_saliency_map_points_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter, eps = eps, restrict = restrict, clip_min = clip_min, clip_max = clip_max))
     elif mode == "sort":
         x_adv_op = postprocess_fn(adversarial_attacks.sort_op(x_pl, model_loss_fn, faces = faces, one_hot = one_hot, iter = iter))
+    elif mode == "view":
+        x_adv_op = postprocess_fn(adversarial_attacks.view_op(x_pl, model_loss_fn, one_hot = one_hot, iter = iter, eps = eps))
     else:
-        raise ValueError("Only iterative, momentum, saliency, and sort modes are supported!")
+        raise ValueError("Only iterative, momentum, saliency, sort, and view modes are supported!")
     
     saver = tf.train.Saver()
 

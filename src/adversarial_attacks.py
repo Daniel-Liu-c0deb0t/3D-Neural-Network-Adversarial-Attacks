@@ -1,4 +1,66 @@
 import tensorflow as tf
+from math import pi
+
+def rotate_op(rot):
+    point = tf.constant([1, 0, 0])
+    point = point[:, tf.newaxis]
+
+    pitch = rot[0][0]
+    yaw = rot[0][1]
+
+    pitch_mat = tf.stack([
+        1, 0, 0,
+        0, tf.cos(pitch), -tf.sin(pitch),
+        0, tf.sin(pitch), tf.cos(pitch)
+    ])
+    pitch_mat = tf.reshape(pitch_mat, [3, 3])
+    yaw_mat = tf.stack([
+        tf.cos(yaw), -tf.sin(yaw), 0,
+        tf.sin(yaw), tf.cos(yaw), 0,
+        0, 0, 1
+    ])
+    yaw_mat = tf.reshape(yaw_mat, [3, 3])
+
+    return tf.reshape(tf.matmul(yaw_mat, tf.matmul(pitch_mat, point)), [1, -1])
+
+def view_op(x_pl, model_loss_fn, t_pl = None, one_hot = True, iter = 10, eps = 1):
+    targeted = t_pl is not None
+    alpha = eps / float(iter)
+
+    # use the prediction class to prevent label leaking
+    if not targeted:
+        logits, _ = model_loss_fn(x_pl, None)
+        t_pl = tf.argmax(logits, axis = 1)
+        if one_hot:
+            t_pl = tf.one_hot(t_pl, tf.shape(logits)[1])
+        t_pl = tf.stop_gradient(t_pl)
+    
+    rot = tf.random_uniform([1, 2], maxval = pi * 2)
+    for _ in range(iter):
+        point = rotate_op(rot)
+        dists = tf.linalg.norm(x_pl - point[:, tf.newaxis], axis = 2)
+        min_dist = tf.reduce_min(dists, axis = 1)
+        avg_dist = tf.reduce_mean(dists, axis = 1)
+        dists = (dists - avg_dist[:, tf.newaxis]) / (avg_dist[:, tf.newaxis] - min_dist[:, tf.newaxis])
+        dists = 1.0 - tf.sigmoid(dists * 6.0)
+        x_adv = dists[:, :, tf.newaxis] * x_pl
+
+        _, loss = model_loss_fn(x_adv, t_pl)
+        grad = tf.gradients(loss, rot)[0]
+        if targeted:
+            rot = rot - alpha * grad
+        else:
+            rot = rot + alpha * grad
+        rot = tf.stop_gradient(rot)
+    
+    remove = dists < 0.4
+    idx = tf.argmin(tf.to_float(remove), axis = 1)
+    one_hot = tf.one_hot(idx, tf.shape(x_adv)[1])
+    replace = tf.reduce_sum(x_adv * one_hot[:, :, tf.newaxis], axis = 1, keep_dims = True)
+    x_adv = tf.where(remove[:, :, tf.newaxis] & tf.fill(tf.shape(x_adv), True), replace + tf.zeros_like(x_adv), x_adv)
+    x_adv = tf.stop_gradient(x_adv)
+
+    return x_adv
 
 def sort_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10):
     targeted = t_pl is not None
@@ -48,6 +110,17 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
     targeted = t_pl is not None
     alpha = eps / float(iter)
     if clip_norm is not None:
+        dists = x_pl[:, tf.newaxis] - x_pl[:, :, tf.newaxis]
+        dists = tf.linalg.norm(dists, axis = 3)
+
+        diag = tf.eye(tf.shape(x_pl)[1], batch_shape = [tf.shape(x_pl)[0]])
+        dists = tf.where(diag > 0.0, tf.fill(tf.shape(dists), float("inf")), dists)
+        
+        dists = tf.reduce_min(dists, axis = 2)
+        avg, var = tf.nn.moments(dists, axes = [1], keep_dims = True)
+        std = clip_norm * tf.sqrt(var)
+        clip_norm = avg + std # set clip_norm to be the actual clip value
+        
         clip_norm = clip_norm / float(iter)
     min_norm = min_norm / float(iter)
 
@@ -79,9 +152,10 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
         x_original = x_adv
 
         perturb = alpha * ord_fn(tf.gradients(loss, x_adv)[0])
-        if clip_norm is not None:
-            perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
         perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
+        if clip_norm is not None:
+            clip = perturb_norm > clip_norm[..., tf.newaxis]
+            perturb = tf.where(clip & tf.fill(tf.shape(perturb), True), perturb * clip_norm[..., tf.newaxis] / perturb_norm, perturb)
         perturb = perturb * tf.to_float(perturb_norm >= min_norm)
 
         if targeted:
@@ -107,6 +181,17 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
     targeted = t_pl is not None
     alpha = eps / float(iter)
     if clip_norm is not None:
+        dists = x_pl[:, tf.newaxis] - x_pl[:, :, tf.newaxis]
+        dists = tf.linalg.norm(dists, axis = 3)
+
+        diag = tf.eye(tf.shape(x_pl)[1], batch_shape = [tf.shape(x_pl)[0]])
+        dists = tf.where(diag > 0.0, tf.fill(tf.shape(dists), float("inf")), dists)
+        
+        dists = tf.reduce_min(dists, axis = 2)
+        avg, var = tf.nn.moments(dists, axes = [1], keep_dims = True)
+        std = clip_norm * tf.sqrt(var)
+        clip_norm = avg + std # set clip_norm to be the actual clip value
+
         clip_norm = clip_norm / float(iter)
     min_norm = min_norm / float(iter)
 
@@ -144,9 +229,10 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
         x_original = x_adv
 
         perturb = alpha * ord_fn(grad)
-        if clip_norm is not None:
-            perturb = tf.clip_by_norm(perturb, clip_norm, axes = [-1])
         perturb_norm = tf.linalg.norm(perturb, axis = -1, keep_dims = True)
+        if clip_norm is not None:
+            clip = perturb_norm > clip_norm[..., tf.newaxis]
+            perturb = tf.where(clip & tf.fill(tf.shape(perturb), True), perturb * clip_norm[..., tf.newaxis] / perturb_norm, perturb)
         perturb = perturb * tf.to_float(perturb_norm >= min_norm)
 
         if targeted:
