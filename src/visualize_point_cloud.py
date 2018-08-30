@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-load_path = "point_clouds/point_clouds_uneven.npz"
+load_path = "point_clouds/pointnet/feature_iter_l2/feature_vector_saliency_adv.npz"
 idx = 0
 saliency_norm = False
 num_points_max = 1024
@@ -83,8 +83,9 @@ else:
             plt.title(dimension[i])
         if triangle_mesh:
             plt.gca().plot_trisurf(*unique.T, triangles = triangles, cmap = "magma")
-        plt.gca().scatter(xs, ys, zs, zdir = "y", c = saliency[i], cmap = "viridis_r", s = 5)
+        plot = plt.gca().scatter(xs, ys, zs, zdir = "y", c = saliency[i], cmap = "viridis_r", s = 5)
         scale_plot()
+    plt.colorbar(plot, cax = plt.axes((0.95, 0.15, 0.01, 0.7)))
 
-plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
+plt.subplots_adjust(left = 0, bottom = 0, right = 0.95, top = 1, wspace = 0, hspace = 0)
 plt.show()
