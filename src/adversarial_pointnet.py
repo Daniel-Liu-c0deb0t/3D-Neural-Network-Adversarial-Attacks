@@ -24,7 +24,7 @@ parser.add_argument("--targeted", action = "store_true", help = "Run targeted at
 parser.add_argument("--iter", type = int, default = 10, help = "Number of iterations for iterative gradient sign.")
 parser.add_argument("--eps", nargs = "+", type = float, default = [1], help = "List of epsilon values for iterative gradient sign.")
 parser.add_argument("--mode", choices = ["iterative", "momentum", "saliency", "sort", "view"], default = "iterative", help = "Which algorithm to use when perturbing points.")
-parser.add_argument("--defense", choices = ["none", "outliers"], default = "none", help = "Which algorithm to use for postprocessing points as a defense.")
+parser.add_argument("--defense", choices = ["none", "outliers", "saliency"], default = "none", help = "Which algorithm to use for postprocessing points as a defense.")
 parser.add_argument("--projection", action = "store_true", help = "Project the gradient vectors onto each point's corresponding triangle.")
 parser.add_argument("--restrict", action = "store_true", help = "Restrict the gradient vectors to be inside each point's corresponding triangle.")
 parser.add_argument("--norm", default = "inf", help = "Norm used for gradient sign.")
@@ -62,7 +62,11 @@ else:
     data_f = None
     data_t = np.concatenate(data_t)
 
-defense_dict = {"none": None, "outliers": adversarial_defenses.remove_outliers_fn}
+defense_dict = {
+    "none": None,
+    "outliers": adversarial_defenses.remove_outliers_fn,
+    "saliency": adversarial_defenses.remove_salient_points_fn
+}
 
 x_pl, t_pl = model.placeholder_inputs(1, args.num_points)
 

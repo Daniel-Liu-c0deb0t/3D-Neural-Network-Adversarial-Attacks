@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def remove_outliers_fn(x, top_k = 10, num_std = 1.0):
+def remove_outliers_fn(x, model_loss_fn, top_k = 10, num_std = 1.0):
     dists = x[:, tf.newaxis] - x[:, :, tf.newaxis]
     dists = tf.linalg.norm(dists, axis = 3)
     
@@ -13,6 +13,22 @@ def remove_outliers_fn(x, top_k = 10, num_std = 1.0):
     std = num_std * tf.sqrt(var)
     
     remove = dists > avg + std
+    idx = tf.argmin(tf.to_float(remove), axis = 1)
+    one_hot = tf.one_hot(idx, tf.shape(x)[1])
+    replace = tf.reduce_sum(x * one_hot[:, :, tf.newaxis], axis = 1, keep_dims = True)
+    x = tf.where(remove[:, :, tf.newaxis] & tf.fill(tf.shape(x), True), replace + tf.zeros_like(x), x)
+
+    return tf.stop_gradient(x)
+
+def remove_salient_points_fn(x, model_loss_fn, top_k = 100):
+    logits, _ = model_loss_fn(x, None)
+    grads = tf.gradients(logits, x)[0]
+
+    norms = tf.linalg.norm(grads, axis = 2)
+    _, remove = tf.nn.top_k(norms, k = top_k, sorted = False)
+    remove = tf.one_hot(remove, tf.shape(x)[1], on_value = True, off_value = False)
+    remove = tf.reduce_any(remove, axis = 1)
+
     idx = tf.argmin(tf.to_float(remove), axis = 1)
     one_hot = tf.one_hot(idx, tf.shape(x)[1])
     replace = tf.reduce_sum(x * one_hot[:, :, tf.newaxis], axis = 1, keep_dims = True)
