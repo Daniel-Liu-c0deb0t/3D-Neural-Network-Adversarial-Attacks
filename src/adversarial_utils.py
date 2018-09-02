@@ -78,7 +78,7 @@ def heatmap(data, path, x_label, y_label, class_names = None, percentages = True
 
 def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, num_objects, class_names, iter, eps_list, norm = "inf", data_f = None, restrict = False, one_hot = True, mode = "iterative", momentum = 1.0, clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0, postprocess_fn = None, extra_feed_dict = None):
     if postprocess_fn is None:
-        postprocess_fn = lambda x: x
+        postprocess_fn = lambda x, y: x
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -87,6 +87,9 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
         if e.errno != errno.EEXIST:
             raise
     
+    def_logits_op, def_loss_op = model_loss_fn(postprocess_fn(x_pl, model_loss_fn), t_pl)
+    def_probs_op = tf.nn.softmax(def_logits_op)
+
     logits_op, loss_op = model_loss_fn(x_pl, t_pl)
     probs_op = tf.nn.softmax(logits_op)
 
@@ -148,7 +151,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
                 t_pl: [data_t[i]]
             }
             feed_dict.update(extra_feed_dict)
-            curr_logit, curr_loss, curr_prob = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
+            curr_logit, curr_loss, curr_prob = sess.run([def_logits_op, def_loss_op, def_probs_op], feed_dict = feed_dict)
             curr_pred = np.argmax(curr_logit, axis = 1)
             logits.append(curr_logit)
             losses.append(curr_loss)
@@ -270,7 +273,7 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
 
 def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, num_objects, class_names, iter, eps_list, norm = "inf", data_f = None, restrict = False, one_hot = True, mode = "iterative", momentum = 1.0, clip_min = None, clip_max = None, clip_norm = None, min_norm = 0.0, postprocess_fn = None, extra_feed_dict = None):
     if postprocess_fn is None:
-        postprocess_fn = {}
+        postprocess_fn = lambda x, y: x
     if extra_feed_dict is None:
         extra_feed_dict = {}
     try:
@@ -279,6 +282,9 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
         if e.errno != errno.EEXIST:
             raise
     
+    def_logits_op, def_loss_op = model_loss_fn(postprocess_fn(x_pl, model_loss_fn), t_pl)
+    def_probs_op = tf.nn.softmax(def_logits_op)
+
     logits_op, loss_op = model_loss_fn(x_pl, t_pl)
     probs_op = tf.nn.softmax(logits_op)
 
@@ -339,7 +345,7 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 t_pl: [data_t[i]]
             }
             feed_dict.update(extra_feed_dict)
-            curr_logit, curr_loss, curr_prob = sess.run([logits_op, loss_op, probs_op], feed_dict = feed_dict)
+            curr_logit, curr_loss, curr_prob = sess.run([def_logits_op, def_loss_op, def_probs_op], feed_dict = feed_dict)
             curr_pred = np.argmax(curr_logit, axis = 1)
             logits.append(curr_logit)
             losses.append(curr_loss)

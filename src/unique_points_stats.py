@@ -31,7 +31,7 @@ print(np.sum(np.all(p1 == 0, axis = 1)))
 
 dup = []
 for _, val in s2.items():
-    if len(val) >= 1:
+    if len(val) > 1:
         dup.append(val)
         print(val)
 print(len(dup))

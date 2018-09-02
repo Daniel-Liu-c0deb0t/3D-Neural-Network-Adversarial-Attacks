@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import argparse
+import errno
 from sklearn.manifold import TSNE
 import matplotlib
 matplotlib.use("Agg")
@@ -44,11 +45,17 @@ plt.subplot(111)
 
 cmap = plt.get_cmap("rainbow")
 for i in range(len(class_names)):
-    plt.gca().scatter(*embedding[labels == i].T, c = cmap(i / len(class_names)), label = class_names[i])
+    plt.gca().scatter(*embedding[labels == i].T, c = cmap(float(i) / len(class_names)), label = class_names[i])
 
 if args.adv is not None:
-    plt.gca().scatter(*embedding_adv.T, c = [[0, 0, 0]], label = "adversarial")
+    plt.gca().scatter(*embedding_adv.T, c = [[0.0, 0.0, 0.0]], label = "adversarial")
 
 plt.gca().legend()
 plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
+
+try:
+    os.makedirs(args.output)
+except OSError as e:
+    if e.errno != errno.EEXIST:
+        raise
 plt.savefig(os.path.join(args.output, "tsne.jpg"))

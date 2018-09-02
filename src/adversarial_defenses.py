@@ -22,9 +22,13 @@ def remove_outliers_fn(x, model_loss_fn, top_k = 10, num_std = 1.0):
 
 def remove_salient_points_fn(x, model_loss_fn, top_k = 100):
     logits, _ = model_loss_fn(x, None)
-    grads = tf.gradients(logits, x)[0]
+    grads = []
+    for i in range(logits.shape[1]):
+        grads.append(tf.gradients(logits[:, i], x)[0])
+    grads = tf.stack(grads, axis = 0)
 
-    norms = tf.linalg.norm(grads, axis = 2)
+    norms = tf.linalg.norm(grads, axis = 3)
+    norms = tf.reduce_max(norms, axis = 0)
     _, remove = tf.nn.top_k(norms, k = top_k, sorted = False)
     remove = tf.one_hot(remove, tf.shape(x)[1], on_value = True, off_value = False)
     remove = tf.reduce_any(remove, axis = 1)
