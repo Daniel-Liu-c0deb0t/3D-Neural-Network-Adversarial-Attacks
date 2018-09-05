@@ -207,5 +207,5 @@ grads_adv, top_adv = feature_grad_fn(diff, k = 5, adv = True)
 grads_original, top_original = feature_grad_fn(diff, k = 5, adv = False)
 sess_close()
 
-np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_adv.npz"), feature_vectors = features_adv, points = data_x_adv, labels = labels, saliency = grads_adv, top_k = top_adv)
+np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_adv.npz"), feature_vectors = features_adv, points = data_x_adv, labels = labels, pred_adv = pred_adv, saliency = grads_adv, top_k = top_adv)
 np.savez_compressed(os.path.join(args.output, "feature_vector_saliency_original.npz"), feature_vectors = features_original, points = data_x_original, labels = labels, saliency = grads_original, top_k = top_original)

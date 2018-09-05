@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description = "t-SNE of feature vectors.", formatter_class = argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("data", help = "Path to the feature vector data file.")
 parser.add_argument("--adv", default = None, help = "Path to the adversarial feature vector data file.")
+parser.add_argument("--pred-adv", action = "store_true", help = "Use adversarial predictions instead of labels.")
 parser.add_argument("--output", default = "feature_vector_tsne", help = "Output directory.")
 parser.add_argument("--class-names", default = "data/modelnet40_ply_hdf5_2048/shape_names.txt", help = "Text file containing a list of class names.")
 parser.add_argument("--perplexity", default = 30.0, help = "Perplexity for t-SNE.")
@@ -25,7 +26,7 @@ with np.load(args.data) as file:
 if args.adv is not None:
     with np.load(args.adv) as file:
         feature_vectors_adv = file["feature_vectors"]
-        labels_adv = file["labels"]
+        labels_adv = file["pred_adv"] if args.pred_adv else file["labels"]
 
 if args.adv is None:
     x = feature_vectors
@@ -40,15 +41,18 @@ else:
     embedding = res[:len(feature_vectors)]
     embedding_adv = res[len(feature_vectors):]
 
-plt.figure(figsize = (15, 15))
+plt.figure(figsize = (20, 20))
 plt.subplot(111)
 
 cmap = plt.get_cmap("rainbow")
 for i in range(len(class_names)):
-    plt.gca().scatter(*embedding[labels == i].T, c = cmap(float(i) / len(class_names)), label = class_names[i])
+    plt.gca().scatter(*embedding[labels == i].T, c = cmap([float(i) / len(class_names)]), label = class_names[i])
 
 if args.adv is not None:
-    plt.gca().scatter(*embedding_adv.T, c = [[0.0, 0.0, 0.0]], label = "adversarial")
+    for i in range(len(class_names)):
+        color = cmap([float(i) / len(class_names)])
+        color[:, :3] *= 0.5
+        plt.gca().scatter(*embedding_adv[labels_adv == i].T, c = color, label = "adversarial %s" % class_names[i])
 
 plt.gca().legend()
 plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)

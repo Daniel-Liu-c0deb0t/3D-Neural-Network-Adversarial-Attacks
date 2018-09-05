@@ -2,8 +2,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-load_path = "point_clouds/pointnet/feature_iter_l2/feature_vector_saliency_adv.npz"
+load_path = "point_clouds/pointnet/outliers_untargeted_iter_l2/succeeded_point_clouds_eps_1_0.npz"
 idx = 0
+visualize_original = False
 saliency_norm = False
 num_points_max = 1024
 triangle_mesh = False
@@ -19,7 +20,7 @@ elif load_path[-3:] == "npz":
     file = np.load(load_path)
 
     if "x_adv" in file:
-        points, labels = file["x_adv"], file["labels"]
+        points, labels = file["x_original" if visualize_original else "x_adv"], file["labels"]
     else:
         points, labels = file["points"], file["labels"]
     
@@ -69,6 +70,7 @@ if saliency is None:
         plt.gca().plot_trisurf(*unique.T, triangles = triangles, cmap = "magma")
     plt.gca().scatter(xs, ys, zs, zdir = "y", s = 5)
     scale_plot()
+    plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
 else:
     plt.figure(figsize = (12, 4))
     if saliency_norm:
@@ -86,6 +88,5 @@ else:
         plot = plt.gca().scatter(xs, ys, zs, zdir = "y", c = saliency[i], cmap = "viridis_r", s = 5)
         scale_plot()
     plt.colorbar(plot, cax = plt.axes((0.95, 0.15, 0.01, 0.7)))
-
-plt.subplots_adjust(left = 0, bottom = 0, right = 0.95, top = 1, wspace = 0, hspace = 0)
+    plt.subplots_adjust(left = 0, bottom = 0, right = 0.95, top = 1, wspace = 0, hspace = 0)
 plt.show()
