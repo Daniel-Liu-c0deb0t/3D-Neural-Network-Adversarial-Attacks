@@ -139,9 +139,9 @@ def iter_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True,
     if ord == "inf":
         ord_fn = tf.sign
     elif ord == "1":
-        ord_fn = lambda x: x / tf.linalg.norm(x, ord = 1, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+        ord_fn = lambda x: x / tf.reduce_sum(tf.abs(x), axis = list(range(1, x.shape.ndims)), keep_dims = True)
     elif ord == "2":
-        ord_fn = lambda x: x / tf.linalg.norm(x, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+        ord_fn = lambda x: x / tf.sqrt(tf.reduce_sum(x ** 2, axis = list(range(1, x.shape.ndims)), keep_dims = True))
     else:
         raise ValueError("Only L-inf, L1, and L2 norms are supported!")
 
@@ -210,9 +210,9 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
     if ord == "inf":
         ord_fn = tf.sign
     elif ord == "1":
-        ord_fn = lambda x: x / tf.linalg.norm(x, ord = 1, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+        ord_fn = lambda x: x / tf.reduce_sum(tf.abs(x), axis = list(range(1, x.shape.ndims)), keep_dims = True)
     elif ord == "2":
-        ord_fn = lambda x: x / tf.linalg.norm(x, axis = list(range(1, x.shape.ndims)), keep_dims = True)
+        ord_fn = lambda x: x / tf.sqrt(tf.reduce_sum(x ** 2, axis = list(range(1, x.shape.ndims)), keep_dims = True))
     else:
         raise ValueError("Only L-inf, L1, and L2 norms are supported!")
 

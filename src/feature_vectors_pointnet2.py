@@ -34,7 +34,7 @@ is_training = tf.placeholder(tf.bool, shape = [])
 
 def model_loss_fn(x, t):
     with tf.variable_scope(tf.get_variable_scope(), reuse = tf.AUTO_REUSE):
-        y, end_points = model.get_model(x, is_training)
+        y, end_points = model.get_model(x, is_training, num_classes = len(class_names))
     if t is None:
         loss = None
     else:
