@@ -111,7 +111,7 @@ else:
         x_original, target, x_adv, pred_adv, faces = res
 
     for eps_idx in range(len(args.eps)):
-        idx = np.random.choice(len(x_original[eps_idx]), size = min(30, len(x_original[eps_idx])), replace = False)
+        idx = np.random.choice(len(x_original[eps_idx]), size = min(3, len(x_original[eps_idx])), replace = False)
         for i in idx:
             img_file = "%d_%s_original.jpg" % (i, class_names[target[eps_idx][i]])
             img_file = os.path.join(args.output, img_file)

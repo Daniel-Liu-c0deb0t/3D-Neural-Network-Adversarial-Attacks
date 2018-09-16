@@ -256,6 +256,7 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
 
 def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
+    eps = float(eps)
     
     # use the prediction class to prevent label leaking
     if not targeted:
@@ -281,9 +282,9 @@ def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = No
         other_grad = total_grad - target_grad
 
         saliency = tf.abs(target_grad) * tf.abs(other_grad)
-        increase = (target_grad >= 0.0) & (other_grad <= 0.0)
-        decrease = (target_grad <= 0.0) & (other_grad >= 0.0)
-        saliency = saliency * tf.to_float((increase | decrease) & unused[:, :, tf.newaxis])
+        increase = (target_grad >= 0.0) & (other_grad <= 0.0) & unused[:, :, tf.newaxis]
+        decrease = (target_grad <= 0.0) & (other_grad >= 0.0) & unused[:, :, tf.newaxis]
+        saliency = saliency * tf.to_float(increase | decrease)
         saliency = tf.reduce_sum(saliency, axis = 2)
 
         idx = tf.argmax(saliency, axis = 1)
@@ -317,6 +318,7 @@ def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = No
 
 def jacobian_saliency_map_pair_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
+    eps = float(eps)
     
     # use the prediction class to prevent label leaking
     if not targeted:
