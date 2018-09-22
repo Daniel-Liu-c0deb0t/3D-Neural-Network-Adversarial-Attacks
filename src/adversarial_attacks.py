@@ -256,7 +256,6 @@ def momentum_grad_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = T
 
 def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
-    eps = float(eps)
     
     # use the prediction class to prevent label leaking
     if not targeted:
@@ -318,7 +317,6 @@ def jacobian_saliency_map_points_op(x_pl, model_loss_fn, t_pl = None, faces = No
 
 def jacobian_saliency_map_pair_op(x_pl, model_loss_fn, t_pl = None, faces = None, one_hot = True, iter = 10, eps = 0.01, restrict = False, clip_min = None, clip_max = None):
     targeted = t_pl is not None
-    eps = float(eps)
     
     # use the prediction class to prevent label leaking
     if not targeted:

@@ -3,6 +3,7 @@ import tensorflow as tf
 import adversarial_utils
 import os
 import sys
+import errno
 import argparse
 import importlib
 working_dir = os.path.dirname(os.path.abspath(__file__))
@@ -163,6 +164,12 @@ pair_dist_original = pair_dist_original / pair_counts
 pair_dist_adv = pair_dist_adv / pair_counts
 pair_dist_pred_adv_original = pair_dist_pred_adv_original / pair_counts_pred_adv
 pair_dist_pred_adv = pair_dist_pred_adv / pair_counts_pred_adv
+
+try:
+    os.makedirs(args.output)
+except OSError as e:
+    if e.errno != errno.EEXIST:
+        raise
 
 adversarial_utils.heatmap(pair_dist_original, os.path.join(args.output, "original_dist.png"), "Original", "Original", class_names = class_names, percentages = False, annotate = False)
 adversarial_utils.heatmap(pair_dist_adv, os.path.join(args.output, "adversarial_dist.png"), "Adversarial", "Original", class_names = class_names, percentages = False, annotate = False)
