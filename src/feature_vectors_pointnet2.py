@@ -45,6 +45,27 @@ def model_loss_fn(x, t):
 features_original, features_adv, feature_grad_fn, sess_close = adversarial_utils.get_feature_vectors(args.checkpoint, x_pl, model_loss_fn, data_x_original, data_x_adv, class_names, extra_feed_dict = {is_training: False})
 
 print(features_original.shape)
+print("Average norm of perturbation: %.3f" % np.mean(np.sqrt(np.sum((data_x_adv - data_x_original) ** 2, axis = (1, 2)))))
+
+avg_ratio = 0.0
+ratio_count = 0
+for i in range(len(labels)):
+    diff_norm = np.linalg.norm(features_adv[i] - features_original[i])
+    avg_dist = 0.0
+    dist_count = 0
+    for j in range(len(labels)):
+        if labels[j] == pred_adv[i]:
+            dist = np.linalg.norm(features_original[i] - features_original[j])
+            avg_dist += dist
+            dist_count += 1
+    if dist_count == 0:
+        continue
+    avg_dist /= float(dist_count)
+    ratio = diff_norm / avg_dist
+    avg_ratio += ratio
+    ratio_count += 1
+
+print("Average ratio of difference norms to average class differences: %.3f" % (avg_ratio / float(ratio_count)))
 
 def print_per_class(per_class):
     for i, val in enumerate(per_class):

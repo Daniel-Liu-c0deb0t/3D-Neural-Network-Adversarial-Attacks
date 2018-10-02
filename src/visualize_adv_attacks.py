@@ -8,12 +8,12 @@ class_str = "car"
 camera = (0, 0)
 
 pointnet_paths = [
-    "point_clouds/pointnet/unique/untargeted_fast_l2/succeeded_point_clouds_eps_1_0.npz",
+    "point_clouds/pointnet/untargeted_16_final/untargeted_16_fast_l2/succeeded_point_clouds_eps_1_0.npz",
     #"point_clouds/pointnet/unique/untargeted_fast_sign/succeeded_point_clouds_eps_0_05.npz",
-    "point_clouds/pointnet/unique/untargeted_iter_l2/succeeded_point_clouds_eps_1_0.npz",
-    "point_clouds/pointnet/unique/untargeted_iter_l2_clip_norm/succeeded_point_clouds_eps_5_0.npz",
+    "point_clouds/pointnet/untargeted_16_final/untargeted_16_iter_l2/succeeded_point_clouds_eps_1_0.npz",
+    "point_clouds/pointnet/untargeted_16_final/untargeted_16_iter_l2_norm/succeeded_point_clouds_eps_1_0.npz",
     #"point_clouds/pointnet/unique/untargeted_iter_l2_min_norm/succeeded_point_clouds_eps_10_0.npz",
-    "point_clouds/pointnet/unique/untargeted_iter_l2_proj/succeeded_point_clouds_eps_5_0.npz",
+    "point_clouds/pointnet/untargeted_16_final/untargeted_16_iter_l2_proj/succeeded_point_clouds_eps_1_0.npz",
     #"point_clouds/pointnet/unique/untargeted_saliency/succeeded_point_clouds_eps_2_0.npz"
 ]
 
@@ -28,6 +28,8 @@ pointnet2_paths = [
 ]
 
 show_both = False
+show_title = False
+show_axis_numbers = False
 class_names = [line.rstrip() for line in open("shape_names_unique.txt")]
 
 pointnet_files = visualization_utils.read_npz_files(pointnet_paths)
@@ -59,7 +61,8 @@ os.makedirs("point_clouds/images/%s" % class_str, exist_ok = True)
 
 plt.figure(figsize = (12, 7))
 plt.subplot(111, projection = "3d")
-plt.title("Original")
+if show_title:
+    plt.title("Original")
 plt.gca().scatter(*pointnet_object[0]["x_original"].T, zdir = "y", s = 5)
 plt.axis("scaled")
 min = np.min(pointnet_object[0]["x_original"]) - 0.1
@@ -68,8 +71,12 @@ plt.gca().set_xlim(min, max)
 plt.gca().set_ylim(min, max)
 plt.gca().set_zlim(min, max)
 plt.gca().view_init(*camera)
+if not show_axis_numbers:
+    plt.gca().set_xticklabels([])
+    plt.gca().set_yticklabels([])
+    plt.gca().set_zticklabels([])
 plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
-plt.savefig("point_clouds/images/%s/adversarial_image_original.png" % class_str)
+plt.savefig("point_clouds/images/%s/adversarial_image_original.eps" % class_str)
 #plt.show()
 plt.close()
 
@@ -88,7 +95,8 @@ for i, p in enumerate(arr):
         plt.subplot(121, projection = "3d")
     else:
         plt.subplot(111, projection = "3d")
-    plt.title("PointNet")
+    if show_title:
+        plt.title("PointNet")
     plt.gca().scatter(*p1["x_adv"].T, zdir = "y", s = 5)
     plt.axis("scaled")
     min = np.min(p1["x_adv"]) - 0.1
@@ -97,10 +105,15 @@ for i, p in enumerate(arr):
     plt.gca().set_ylim(min, max)
     plt.gca().set_zlim(min, max)
     plt.gca().view_init(*camera)
+    if not show_axis_numbers:
+        plt.gca().set_xticklabels([])
+        plt.gca().set_yticklabels([])
+        plt.gca().set_zticklabels([])
 
     if show_both:
         plt.subplot(122, projection = "3d")
-        plt.title("PointNet++")
+        if show_title:
+            plt.title("PointNet++")
         plt.gca().scatter(*p2["x_adv"].T, zdir = "y", s = 5)
         plt.axis("scaled")
         min = np.min(p2["x_adv"]) - 0.1
@@ -109,10 +122,14 @@ for i, p in enumerate(arr):
         plt.gca().set_ylim(min, max)
         plt.gca().set_zlim(min, max)
         plt.gca().view_init(*camera)
+        if not show_axis_numbers:
+            plt.gca().set_xticklabels([])
+            plt.gca().set_yticklabels([])
+            plt.gca().set_zticklabels([])
     
     plt.subplots_adjust(left = 0, bottom = 0, right = 1, top = 1, wspace = 0, hspace = 0)
 
-    plt.savefig("point_clouds/images/%s/adversarial_image_%d.png" % (class_str, (i + 1)))
+    plt.savefig("point_clouds/images/%s/adversarial_image_%d.eps" % (class_str, (i + 1)))
     #plt.show()
     plt.close()
 
