@@ -66,7 +66,7 @@ def heatmap(data, path, x_label, y_label, class_names = None, percentages = True
         vmax = None
         fmt = "d"
     
-    fig_size = len(class_names) // 10 * 6 + 3
+    fig_size = len(class_names) // 10 * 7 + 3
     plt.figure(figsize = (fig_size, fig_size))
     ax = sns.heatmap(data.T, annot = annotate, xticklabels = class_names, yticklabels = class_names, vmin = vmin, vmax = vmax, fmt = fmt, linewidths = 2)
     ax.invert_yaxis()
@@ -240,8 +240,8 @@ def untargeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, da
             np.add.at(class_changes, [preds, preds_adv], 1)
 
             eps_str = str(curr_eps).replace(".", "_")
-            class_change_heatmap(class_changes, os.path.join(out_dir, "class_changes_eps_%s.png" % eps_str), class_names = class_names, percentages = False)
-            class_change_heatmap(class_changes, os.path.join(out_dir, "percent_class_changes_eps_%s.png" % eps_str), class_names = class_names, annotate = False)
+            class_change_heatmap(class_changes, os.path.join(out_dir, "class_changes_eps_%s.eps" % eps_str), class_names = class_names, percentages = False)
+            class_change_heatmap(class_changes, os.path.join(out_dir, "percent_class_changes_eps_%s.eps" % eps_str), class_names = class_names, annotate = False)
 
             class_succeeded = np.zeros(shape = len(class_names), dtype = int)
             np.add.at(class_succeeded, preds[succeeded_idx], 1)
@@ -462,8 +462,8 @@ def targeted_attack(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data
                 else:
                     np.savez_compressed(os.path.join(out_dir, "succeeded_point_clouds_target_%s_eps_%s.npz" % (class_names[curr_target], eps_str)), x_original = curr_succeeded_x_original[-1], labels = curr_succeeded_target[-1], x_adv = curr_succeeded_x_adv[-1], faces = curr_succeeded_faces[-1])
 
-            targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_count_eps_%s.png" % eps_str), class_names = class_names)
-            targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_rate_eps_%s.png" % eps_str), total = heatmap_totals, class_names = class_names, annotate = False)
+            targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_count_eps_%s.eps" % eps_str), class_names = class_names)
+            targeted_success_rate_heatmap(success_counts, os.path.join(out_dir, "success_rate_eps_%s.eps" % eps_str), total = heatmap_totals, class_names = class_names)
 
             total_succeeded /= float(len(class_names))
             total_successful_confidence /= float(len(class_names))
@@ -563,13 +563,13 @@ def evaluate(model_path, out_dir, x_pl, t_pl, model_loss_fn, data_x, data_t, cla
             np.add.at(preds_vs_preds, [sparse_p, preds], 1)
 
         if data_p is None:
-            confusion_heatmap(target_vs_preds, os.path.join(out_dir, "labels_vs_preds.png"), class_names = class_names, percentages = False)
-            confusion_heatmap(target_vs_preds, os.path.join(out_dir, "percent_labels_vs_preds.png"), class_names = class_names, annotate = False)
+            confusion_heatmap(target_vs_preds, os.path.join(out_dir, "labels_vs_preds.eps"), class_names = class_names, percentages = False)
+            confusion_heatmap(target_vs_preds, os.path.join(out_dir, "percent_labels_vs_preds.eps"), class_names = class_names, annotate = False)
         else:
-            class_change_heatmap(target_vs_preds, os.path.join(out_dir, "labels_vs_preds.png"), class_names = class_names, percentages = False)
-            class_change_heatmap(target_vs_preds, os.path.join(out_dir, "percent_labels_vs_preds.png"), class_names = class_names, annotate = False)
-            transfer_heatmap(preds_vs_preds, os.path.join(out_dir, "preds_vs_preds.png"), class_names = class_names, percentages = False)
-            transfer_heatmap(preds_vs_preds, os.path.join(out_dir, "percent_preds_vs_preds.png"), class_names = class_names, annotate = False)
+            class_change_heatmap(target_vs_preds, os.path.join(out_dir, "labels_vs_preds.eps"), class_names = class_names, percentages = False)
+            class_change_heatmap(target_vs_preds, os.path.join(out_dir, "percent_labels_vs_preds.eps"), class_names = class_names, annotate = False)
+            transfer_heatmap(preds_vs_preds, os.path.join(out_dir, "preds_vs_preds.eps"), class_names = class_names, percentages = False)
+            transfer_heatmap(preds_vs_preds, os.path.join(out_dir, "percent_preds_vs_preds.eps"), class_names = class_names, annotate = False)
 
         print("Total: %d" % len(data_x))
         if data_p is None:
