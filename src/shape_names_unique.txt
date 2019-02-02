@@ -1,0 +1,16 @@
+airplane
+bed
+bookshelf
+car
+chair
+cone
+cup
+guitar
+lamp
+laptop
+person
+piano
+plant
+range_hood
+stairs
+table
