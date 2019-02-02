@@ -1,6 +1,8 @@
 # 3D Point Cloud Adversarial Attacks and Defenses
 Adversarial attacks and defenses on neural networks that process 3D point cloud data, namely PointNet and PointNet++. The preprint paper is available on Arxiv [here](https://arxiv.org/abs/1901.03006).
 
+Note that files modified from the PointNet and PointNet++ source codes are included. Some files may need to be moved to the correct location before running experiments.
+
 ## Highlights
 ### Attacks
 - Fast/iterative gradient sign
