@@ -10,6 +10,8 @@ Adversarial attacks and defenses on neural networks that process 3D point cloud 
 }
 ```
 
+A continuation of this research is in [this paper](https://arxiv.org/abs/1908.06062), and its code is available [here](https://github.com/Daniel-Liu-c0deb0t/Adversarial-point-perturbations-on-3D-objects).
+
 Note that files modified from the PointNet and PointNet++ source codes are included. Some files may need to be moved to the correct location before running experiments.
 
 ## Highlights
